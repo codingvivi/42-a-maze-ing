@@ -1,0 +1,32 @@
+# python
+__pycache__
+*.py[cod]
+*.egg
+*.egg-info/
+
+# tools
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# build
+build/
+dist/
+
+# coverage
+.coverage
+htmlcov/
+
+# environment
+.env
+.venv/
+
+# logs
+*.log
+
+# os
+.DS_Store
+Thumbs.db
+
+# not mine
+docs/42
