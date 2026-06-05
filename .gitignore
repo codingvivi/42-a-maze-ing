@@ -13,6 +13,11 @@ __pycache__
 build/
 dist/
 
+# reusable package build artifacts (force-add the final one for turn-in:
+#   git add -f mazegen-*.whl mazegen-*.tar.gz)
+mazegen-*.whl
+mazegen-*.tar.gz
+
 # coverage
 .coverage
 htmlcov/

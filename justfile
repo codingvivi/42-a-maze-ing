@@ -17,9 +17,9 @@ _default:
 # run
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# run the project entry point (defaults to src/main.py)
+# run the project entry point (defaults to src/a_maze_ing.py)
 [group('run')]
-run file="main.py":
+run file="a_maze_ing.py":
     uv run python {{src-dir}}/{{file}}
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
