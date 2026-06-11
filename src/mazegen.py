@@ -169,14 +169,14 @@ class MazeGenerator:
         return 0 <= cell.x < self.width and 0 <= cell.y < self.height
 
     @staticmethod
-    def _neighbor(cell: Cell, direction: Wall) -> Cell:
+    def _get_neighbor(cell: Cell, direction: Wall) -> Cell:
         "Return neighboring cell for given direction"
         dx, dy = _DELTA[direction]
-        return Cell(cell.x - dx, cell.y - dy)
+        return Cell(cell.x + dx, cell.y + dy)
 
     # methods
     def _open_wall(self, cell: Cell, direction: Wall) -> None:
-        neighbor: Cell = self._neighbor(cell, direction)
+        neighbor: Cell = self._get_neighbor(cell, direction)
         assert self._in_bounds(neighbor), (
             f"_open_wall toward edge: {cell} -> {direction}"
         )
@@ -190,8 +190,45 @@ class MazeGenerator:
             print("".join(f"{int(c):x}" for c in row))
 
     def generate(self) -> None:
-        """Carve the maze in place. (Not yet implemented.)"""
-        raise NotImplementedError
+        """Carve maze using "recursive" backtracking (stack based)."""
+        current_path: list[Cell] = [self.entry]
+        visited: set[Cell] = {self.entry}
+        # explore a path with cells that have neighbors
+        # if cell without neighbors is hit, backtrack until one is found
+        # if no such cells exist, done.
+        while current_path:
+            curr_cell = current_path[-1]
+            # get candidates and their dir
+            candidates: list[tuple[Cell, Wall]] = [
+                (neighbor, direction)
+                for direction in Wall
+                if self._in_bounds(
+                    neighbor := self._get_neighbor(curr_cell, direction)
+                )
+                and neighbor not in visited
+            ]
+
+            if not candidates:
+                current_path.pop()
+                continue
+
+            next_cell, direction = random.choice(candidates)
+            self._open_wall(curr_cell, direction)
+            current_path.append(next_cell)
+            visited.add(next_cell)
+
+        # once done i should have traversed everything
+        def _all_cells() -> set[Cell]:
+            "Returns set of all cells, for checking"
+            return {
+                Cell(x, y)
+                for y in range(self.height)
+                for x in range(self.width)
+            }
+
+        assert len(visited) == self.width * self.height, (
+            f"unvisited cells: {_all_cells() - visited}"
+        )
 
     def _ascii_debug(self) -> str:
         """Return an ASCII rendering of the maze. (debug version)"""
@@ -252,7 +289,7 @@ def _demo() -> None:
         seed=42,
     )
     gen._dump()
-    # gen.generate()
+    gen.generate()
     print(gen._ascii_debug())
 
 
