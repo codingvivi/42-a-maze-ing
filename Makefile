@@ -1,5 +1,6 @@
 SRC_DIR := src
 MAIN    := $(SRC_DIR)/a_maze_ing.py
+MODULE  := $(SRC_DIR)/mazegen.py
 CONFIG  ?= config.txt
 
 MYPY_FLAGS := --warn-return-any --warn-unused-ignores --ignore-missing-imports \
@@ -18,12 +19,13 @@ install:
 run:
 	uv run python $(MAIN) $(CONFIG)
 
+# run module as a standalone file (for debugging purposes)
+run-mazegen:
+	uv run python $(MODULE) $(CONFIG)
+
 # run the main script under the pdb debugger
 debug:
 	uv run python -m pdb $(MAIN) $(CONFIG)
-
-
-
 
 # mypy with the subject's mandatory flags
 mypy:

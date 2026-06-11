@@ -15,9 +15,16 @@ Example:
     >>> gen.generate()
 """
 
+import random
 from collections.abc import Mapping
 from enum import IntFlag
 from typing import NamedTuple
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+#                                                                             #
+#  Public types                                                               #
+#                                                                             #
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
 
 # Note:
@@ -36,6 +43,13 @@ class Wall(IntFlag):
     E = 0b0010
     S = 0b0100
     W = 0b1000
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+#                                                                             #
+#  Lookup tables                                                              #
+#                                                                             #
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
 
 # For debugging
@@ -57,6 +71,13 @@ _DELTA: Mapping[Wall, tuple[int, int]] = {
     Wall.S: (0, 1),
     Wall.W: (-1, 0),
 }
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+#                                                                             #
+#  MazeGenerator                                                              #
+#                                                                             #
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
 
 class MazeGenerator:
@@ -119,6 +140,7 @@ class MazeGenerator:
 
         self.perfect: bool = perfect
         self.seed: int | None = seed
+        self._rng = random.Random(seed)
 
     @property
     def grid(self) -> tuple[tuple[Wall, ...], ...]:
@@ -136,7 +158,7 @@ class MazeGenerator:
 
         Returns the maze's actual backing storage for performance. Mutating
         it may break maze invariants (wall coherence, closed borders). Treat
-        as read-only unless you know what you're doing; for a safe copy, use
+        as read-only unless you know what you're doing! For a safe copy use
         :attr:`grid`. Index as ``raw_grid[y][x]``.
         """
         return self._grid
@@ -154,9 +176,52 @@ class MazeGenerator:
         """Carve the maze in place. (Not yet implemented.)"""
         raise NotImplementedError
 
-    def ascii_debug(self) -> str:
-        """Return an ASCII rendering of the maze. (Not yet implemented.)"""
-        raise NotImplementedError
+    def _ascii_debug(self) -> str:
+        """Return an ASCII rendering of the maze. (debug version)"""
+
+        lines: list[str] = []
+        # for each cell vertically
+        for y in range(self.height):
+            # cel:
+            #  +---+
+            #  |   |
+            #  +---+
+            # Line spacing makes up for the missing two vertical chars.
+            # After removing elements cells share:
+            #  +---
+            #  |
+            roof = ""
+            body = ""
+            for x in range(self.width):
+                cell = self._grid[y][x]
+                roof += "+" + ("---" if Wall.N in cell else "   ")
+                body += ("|" if Wall.W in cell else " ") + "   "
+            # eastmost cell has no neighbors
+            # add edge
+            roof += "+"
+            # and east wall
+            last = self._grid[y][self.width - 1]
+            body += "|" if Wall.E in last else " "
+            # add to printout
+            lines.append(roof)
+            lines.append(body)
+
+        # last line doesnt have neighbor cells bellow, thus:
+        floor = ""
+        for x in range(self.width):
+            cell = self._grid[self.height - 1][x]
+            floor += "+" + ("---" if Wall.S in cell else "   ")
+        floor += "+"
+        lines.append(floor)
+
+        return "\n".join(lines)
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+#                                                                             #
+#  Entry point                                                                #
+#                                                                             #
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
 
 def _demo() -> None:
@@ -169,13 +234,10 @@ def _demo() -> None:
         perfect=True,
         seed=42,
     )
-    gen.generate()
-    print(gen.ascii_debug())
+    gen._dump()
+    # gen.generate()
+    print(gen._ascii_debug())
 
 
 if __name__ == "__main__":
-    gen = MazeGenerator(
-        width=8, height=5, entry=Cell(0, 0), exit=Cell(7, 4), perfect=True
-    )
-    gen._dump()
-    # _demo()
+    _demo()
