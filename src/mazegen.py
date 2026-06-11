@@ -163,10 +163,27 @@ class MazeGenerator:
         """
         return self._grid
 
+    # checks
     def _in_bounds(self, cell: Cell) -> bool:
         """Return True if ``cell`` lies inside the maze bounds."""
         return 0 <= cell.x < self.width and 0 <= cell.y < self.height
 
+    @staticmethod
+    def _neighbor(cell: Cell, direction: Wall) -> Cell:
+        "Return neighboring cell for given direction"
+        dx, dy = _DELTA[direction]
+        return Cell(cell.x - dx, cell.y - dy)
+
+    # methods
+    def _open_wall(self, cell: Cell, direction: Wall) -> None:
+        neighbor: Cell = self._neighbor(cell, direction)
+        assert self._in_bounds(neighbor), (
+            f"_open_wall toward edge: {cell} -> {direction}"
+        )
+        self._grid[cell.y][cell.x] &= ~direction
+        self._grid[neighbor.y][neighbor.x] &= ~_OPPOSITE[direction]
+
+    # returns
     def _dump(self) -> None:
         """Print raw wall-bit values, one hex digit per cell."""
         for row in self._grid:
