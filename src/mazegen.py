@@ -15,6 +15,7 @@ Example:
     >>> gen.generate()
 """
 
+from collections import deque
 import random
 from collections.abc import Mapping
 from enum import IntFlag
@@ -209,10 +210,10 @@ class MazeGenerator:
             ]
 
             if not candidates:
-                current_path.pop()
+                _ = current_path.pop()
                 continue
 
-            next_cell, direction = random.choice(candidates)
+            next_cell, direction = self._rng.choice(candidates)
             self._open_wall(curr_cell, direction)
             current_path.append(next_cell)
             visited.add(next_cell)

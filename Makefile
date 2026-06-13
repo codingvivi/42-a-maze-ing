@@ -56,6 +56,13 @@ lint-strict: flake8 mypy-strict
 # run every linter we have: ruff + flake8 + mypy --strict
 lint-all: ruff flake8 mypy-strict
 
+test:
+	uv run pytest
+
+test-turnin: lint-strict pytest
+
+test-all: lint-all pytest
+
 # remove python caches
 clean:
 	find $(SRC_DIR) -type d -name '__pycache__' -exec rm -rf {} +
