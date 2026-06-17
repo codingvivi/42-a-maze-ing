@@ -19,6 +19,7 @@ import random
 from collections import deque
 from collections.abc import Mapping
 from enum import IntFlag
+from itertools import pairwise
 from typing import NamedTuple
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
@@ -73,6 +74,11 @@ _DELTA: Mapping[Wall, tuple[int, int]] = {
     Wall.W: (-1, 0),
 }
 
+# Reverse of _DELTA:
+# which wall does a given step vector cross?
+_WALL_FROM_DELTA: Mapping[tuple[int, int], Wall] = {
+    delta: wall for wall, delta in _DELTA.items()
+}
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 #                                                                             #
@@ -175,7 +181,23 @@ class MazeGenerator:
         dx, dy = _DELTA[direction]
         return Cell(cell.x + dx, cell.y + dy)
 
+    @staticmethod
+    def _get_direction(cell: Cell, neighbor: Cell) -> Wall:
+        "Return the wall of cell that faces neighbor."
+        delta = (neighbor.x - cell.x, neighbor.y - cell.y)
+        direction = _WALL_FROM_DELTA.get(delta)
+        assert direction is not None, f"{cell} and {neighbor} are not adjacent"
+        return direction
+
+    @staticmethod
+    def _direction_letter(cell: Cell, neighbor: Cell) -> str:
+        "Return the N/E/S/W letter of the step from cell to neighbor."
+        name = MazeGenerator._get_direction(cell, neighbor).name
+        assert name is not None  # a single wall member always has a name
+        return name
+
     # methods
+
     def _open_wall(self, cell: Cell, direction: Wall) -> None:
         neighbor: Cell = self._get_neighbor(cell, direction)
         assert self._in_bounds(neighbor), (
@@ -230,6 +252,43 @@ class MazeGenerator:
         assert len(visited) == self.width * self.height, (
             f"unvisited cells: {_all_cells() - visited}"
         )
+
+    def solve(self) -> str:
+        queue = deque([self.entry])
+        came_from: dict[Cell, Cell | None] = {
+            self.exit: None,
+        }
+        grid = self._grid
+        while queue:
+            curr = queue.popleft()
+            if curr == self.exit:
+                break
+            for w, (dx, dy) in _DELTA.items():
+                if w not in grid[curr.y][curr.x]:
+                    next = Cell(curr.x + dx, curr.y + dy)
+                    if (
+                        next not in came_from
+                        and 0 <= next.x < self.width
+                        and 0 <= next.y < self.height
+                    ):
+                        came_from[next] = curr
+                        if next == self.exit:
+                            break
+                        queue.append(next)
+        # deque better for repeated prepends
+        solution_cells: deque[Cell] = deque([self.exit])
+        previous: Cell | None = came_from[self.exit]
+        # trace steps from exit to entry
+        while previous is not None:
+            solution_cells.appendleft(previous)
+            previous = came_from[previous]
+        # write steps into string
+        # name is attribute of an enum member. convenient!
+        solution_str: str = "".join(
+            self._direction_letter(curr, next)
+            for curr, next in pairwise(solution_cells)
+        )
+        return solution_str
 
     def _ascii_debug(self) -> str:
         """Return an ASCII rendering of the maze. (debug version)"""
