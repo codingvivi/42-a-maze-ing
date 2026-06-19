@@ -9,12 +9,6 @@ EAST = 2   # 0010
 SOUTH = 4  # 0100
 WEST = 8   # 1000
 
-RED = '\033[91m'
-GREEN = '\033[92m'
-YELLOW = '\033[93m'
-BLUE = '\033[94m'
-RESET = '\033[0m'
-
 
 class Maze(NamedTuple):
     width: int
@@ -129,54 +123,124 @@ def gen_vis(maze: Maze) -> list[list[str]]:
         for x_cell in range(maze.width):
             cell: int = int(maze.cells[y_cell][x_cell], 16)
 
-            # the following line should be deleted not before
-            # the next commented out chunk is complete
-            output[y_char].append(" ")
-#           if y_cell == 0:
-#               if x_cell == 0:
-#                   pass  # does this work as intended?
-#               elif cell & WEST:
-#                   output[x_char].append("┳")
-#               else:
-#                   output[x_char].append("━")
-#           elif x_cell == 0:
-#               if cell & NORTH:
-#                   output[x_char].append("┣")
-#               else:
-#                   output[x_char].append("┃")
-#           elif maze.cells[x_cell - 1][y_cell - 1] & EAST:
+# this big chunk is JUST for junctions to look better
+            if y_cell == 0:
+                if x_cell == 0:
+                    output[y_char].append("┏")
+                elif cell & WEST:
+                    output[y_char].append("┳")
+                else:
+                    output[y_char].append("━")
+            elif x_cell == 0:
+                if cell & NORTH:
+                    output[y_char].append("┣")
+                else:
+                    output[y_char].append("┃")
+            elif int(maze.cells[y_cell - 1][x_cell - 1], 16) & EAST:
+                if int(maze.cells[y_cell - 1][x_cell - 1], 16) & SOUTH:
+                    if cell & NORTH:
+                        if cell & WEST:
+                            output[y_char].append("╋")
+                        else:
+                            output[y_char].append("┻")
+                    elif cell & WEST:
+                        output[y_char].append("┫")
+                    else:
+                        output[y_char].append("┛")
+                elif cell & NORTH:
+                    if cell & WEST:
+                        output[y_char].append("┣")
+                    else:
+                        output[y_char].append("┗")
+                elif cell & WEST:
+                    output[y_char].append("┃")
+                else:
+                    output[y_char].append(" ")
+            elif int(maze.cells[y_cell - 1][x_cell - 1], 16) & SOUTH:
+                if cell & NORTH:
+                    if cell & WEST:
+                        output[y_char].append("┳")
+                    else:
+                        output[y_char].append("━")
+                elif cell & WEST:
+                    output[y_char].append("┓")
+                else:
+                    output[y_char].append(" ")
+            elif cell & NORTH:
+                if cell & WEST:
+                    output[y_char].append("┏")
+                else:
+                    output[y_char].append(" ")
+            else:
+                output[y_char].append(" ")
 
+# top wall
             if cell & NORTH:
                 output[y_char].append("━━━")
             else:
                 output[y_char].append("   ")
 
+# left wall
             if cell & WEST:
                 output[y_char + 1].append("┃")
             else:
                 output[y_char + 1].append(" ")
             output[y_char + 1].append("   ")
-# not sure what i wanted to do here:
-#           if y_cell == 0:
-#               if x_char == maze.width - 1:
-#                   output[x_char].append("┓")
-#               elif cell & EAST:
-#                   output[x_char].append("┳")
-#               else:
-#                   output[x_char].append("━")
 
-#           if x_char == maze.width - 1:
+# maze's bottom walls
+            if y_cell == maze.height - 1:
+                if x_cell == 0:
+                    output[y_char + 2].append("┗━━━")
+                if x_cell == maze.width - 1:
+                    output[y_char + 2].append("┛")
+                elif cell & EAST:
+                    output[y_char + 2].append("┻━━━")
+                else:
+                    output[y_char + 2].append("━━━━")
 
-#           if y_char == maze.height - 1:
-
-        output[y_char].append("\n")
+# maze's right walls
+        if y_cell == 0:
+            output[y_char].append("┓\n")
+        elif cell & NORTH:
+            output[y_char].append("┫\n")
+        else:
+            output[y_char].append("┃\n")
         output[y_char + 1].append("┃\n")
+
         y_char += 2
-    output[y_char].append("┗━━━")
-    # missing last char row connectors
-    output[y_char].append("┛")
 
     return output
+
+
+def colourify(raw_maze: list[list[str]], colour: int) -> list[list[str]]:
+    """Gives colour to the maze."""
+    colours = (
+        '\033[0m',
+        '\033[91m',
+        '\033[92m',
+        '\033[93m',
+        '\033[94m',
+        '\033[38;2;255;165;0m'
+    )
+#    RED = '\033[91m'
+#    GREEN = '\033[92m'
+#    YELLOW = '\033[93m'
+#    BLUE = '\033[94m'
+#    ORANGE = '\033[38;2;255;165;0m'
+#    RESET = '\033[0m'
+    colourful_maze = [[f"{colours[colour]}{wall}{colours[0]}" for wall in row] for row in raw_maze]
+
+    return colourful_maze
+
+def show_options(maze: Maze) -> str:
+    """Wrapping function that takes input from user
+     to choose a colour for the maze.
+    """
+    print("Choose a maze colour:")
+    colour = int(input("1: RED - 2: GREEN - 3: YELLOW - 4: BLUE - 5: ORANGE\n"))
+    solved_maze = draw_path(maze, colourify(gen_vis(maze), colour))
+    return ''.join(string for row in solved_maze for string in row)
+    # we just merged everything into a single string
 
 
 if __name__ == "__main__":
@@ -184,9 +248,6 @@ if __name__ == "__main__":
     maze = load_output("output_maze.txt")
     print(maze)
     print()
-    raw_maze = gen_vis(maze)
-    solved_maze = draw_path(maze, raw_maze)
-    str_maze = ''.join(string for row in solved_maze for string in row)
-    # we just merged everything into a single string
+    str_maze = show_options(maze)
     print(str_maze)
     print()
