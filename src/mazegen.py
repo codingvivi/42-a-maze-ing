@@ -160,13 +160,13 @@ class MazeGenerator:
         return tuple(tuple(row) for row in self._grid)
 
     @property
-    def raw_grid(self) -> list[list[Wall]]:
+    def live_grid(self) -> list[list[Wall]]:
         """The live internal grid, no copy.
 
         Returns the maze's actual backing storage for performance. Mutating
         it may break maze invariants (wall coherence, closed borders). Treat
         as read-only unless you know what you're doing! For a safe copy use
-        :attr:`grid`. Index as ``raw_grid[y][x]``.
+        :attr:`grid`. Index as ``live_grid[y][x]``.
         """
         return self._grid
 
@@ -256,7 +256,7 @@ class MazeGenerator:
     def solve(self) -> str:
         queue = deque([self.entry])
         came_from: dict[Cell, Cell | None] = {
-            self.exit: None,
+            self.entry: None,
         }
         grid = self._grid
         while queue:
@@ -336,22 +336,3 @@ class MazeGenerator:
 #  Entry point                                                                #
 #                                                                             #
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
-
-
-def _demo() -> None:
-    """Build a maze and print it. Used for debugging purposes."""
-    gen = MazeGenerator(
-        width=20,
-        height=15,
-        entry=Cell(0, 0),
-        exit=Cell(19, 14),
-        perfect=True,
-        seed=42,
-    )
-    gen._dump()
-    gen.generate()
-    print(gen._ascii_debug())
-
-
-if __name__ == "__main__":
-    _demo()
