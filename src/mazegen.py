@@ -15,8 +15,8 @@ Example:
     >>> gen.generate()
 """
 
-from collections import deque
 import random
+from collections import deque
 from collections.abc import Mapping
 from enum import IntFlag
 from typing import NamedTuple
