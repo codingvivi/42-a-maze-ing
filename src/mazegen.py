@@ -52,8 +52,7 @@ class Wall(IntFlag):
 #  Lookup tables                                                              #
 #                                                                             #
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
-
-
+#
 # For debugging
 ALL_CLOSED = Wall.N | Wall.E | Wall.S | Wall.W
 
@@ -79,6 +78,33 @@ _DELTA: Mapping[Wall, tuple[int, int]] = {
 _WALL_FROM_DELTA: Mapping[tuple[int, int], Wall] = {
     delta: wall for wall, delta in _DELTA.items()
 }
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+#                                                                             #
+#  42 Mask                                                                    #
+#                                                                             #
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+
+Glyph = tuple[str, ...]
+
+_FOUR: Glyph = (
+    "X..",
+    "X..",
+    "XXX",
+    "..X",
+    "..X",
+)
+
+_TWO: Glyph = (
+    "XXX",
+    "..X",
+    "XXX",
+    "X..",
+    "XXX",
+)
+
+_FONT: Mapping[str, Glyph] = {"4": _FOUR, "2": _TWO}
+
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 #                                                                             #
@@ -132,16 +158,14 @@ class MazeGenerator:
                 f"dimensions must be positive, got {self.width}x{self.height}"
             )
 
+        self._mask_label: str = "42"
+        self.mask: set[Cell] = self._build_mask()
+
         self.entry: Cell = entry
         self.exit: Cell = exit
-        if self.entry == self.exit:
-            raise ValueError("Entry and exit must differ!")
-        if not self._in_bounds(entry):
-            raise ValueError(f"entry {entry} must be within bounds")
-        if not self._in_bounds(exit):
-            raise ValueError(f"exit {exit} must be within bounds")
+        self._validate_entry_and_exit()
 
-        self._grid = [
+        self._grid: list[list[Wall]] = [
             [ALL_CLOSED for _ in range(width)] for _ in range(height)
         ]
 
@@ -155,7 +179,7 @@ class MazeGenerator:
 
         Returns a fresh tuple-of-tuples copy, so mutating the result cannot
         affect the maze. Index it as ``grid[y][x]``. For zero-copy access,
-        see :attr:`raw_grid`.
+        see :attr:`live_grid`.
         """
         return tuple(tuple(row) for row in self._grid)
 
@@ -170,10 +194,35 @@ class MazeGenerator:
         """
         return self._grid
 
+    @property
+    def hex_grid(self) -> tuple[str, ...]:
+        """Get raw wall-bit values, one hex digit per cell."""
+        rows: list[str] = [
+            "".join(f"{int(cell):x}" for cell in row) for row in self._grid
+        ]
+        return tuple(rows)
+
     # checks
-    def _in_bounds(self, cell: Cell) -> bool:
+    def _is_in_bounds(self, cell: Cell) -> bool:
         """Return True if ``cell`` lies inside the maze bounds."""
         return 0 <= cell.x < self.width and 0 <= cell.y < self.height
+
+    def _is_in_mask(self, cell: Cell) -> bool:
+        """Return True if cell lies inside the maze mask."""
+        return cell in self.mask
+
+    def _validate_entry_and_exit(self) -> None:
+        if self.entry == self.exit:
+            raise ValueError("Entry and exit must differ!")
+
+        for name, cell in (("entry", self.entry), ("exit", self.exit)):
+            if not self._is_in_bounds(cell):
+                raise ValueError(f"{name} ({cell}) must be within bounds")
+            if self._is_in_mask(cell):
+                raise ValueError(
+                    f"{name} ({cell}) overlaps the maze mask "
+                    f"({self._mask_label})"
+                )
 
     @staticmethod
     def _get_neighbor(cell: Cell, direction: Wall) -> Cell:
@@ -200,17 +249,49 @@ class MazeGenerator:
 
     def _open_wall(self, cell: Cell, direction: Wall) -> None:
         neighbor: Cell = self._get_neighbor(cell, direction)
-        assert self._in_bounds(neighbor), (
+        assert self._is_in_bounds(neighbor), (
             f"_open_wall toward edge: {cell} -> {direction}"
         )
         self._grid[cell.y][cell.x] &= ~direction
         self._grid[neighbor.y][neighbor.x] &= ~_OPPOSITE[direction]
 
-    # returns
-    def _dump(self) -> None:
-        """Print raw wall-bit values, one hex digit per cell."""
-        for row in self._grid:
-            print("".join(f"{int(c):x}" for c in row))
+    @staticmethod
+    def _glyph_cells(glyph: Glyph, ox: int, oy: int) -> set[Cell]:
+        "Return the glyph's 'X' cells offset to origin (ox, oy)."
+        return {
+            Cell(ox + gx, oy + gy)
+            for gy, row in enumerate(glyph)  # {index, row} in glyph
+            for gx, char in enumerate(row)  # {index, char} in row
+            if char == "X"  # only the lit cells join the set
+        }
+
+    def _build_mask(self) -> set[Cell]:
+        "Return the label's glyph cells, centered in this maze."
+        label = self._mask_label
+
+        glyphs: list[Glyph] = [_FONT[ch] for ch in label]
+        gap: int = 1
+
+        height_glyphs: int = max(len(g) for g in glyphs)
+        widths_glyphs: list[int] = [len(g[0]) for g in glyphs]
+        total_width: int = sum(widths_glyphs) + gap * (len(glyphs) - 1)
+
+        min_w = total_width + 2
+        min_h = height_glyphs + 2
+        if self.width < min_w or self.height < min_h:
+            raise ValueError(
+                f"maze must be at least {min_w}x{min_h} to hold the {label!r} mask"
+            )
+        ox = (self.width - total_width) // 2
+        oy = (self.height - height_glyphs) // 2
+
+        mask: set[Cell] = set()
+        x = ox
+        for glyph, gw in zip(glyphs, widths_glyphs):
+            mask |= self._glyph_cells(glyph, x, oy)
+            x += gw + gap
+
+        return mask
 
     def generate(self) -> None:
         """Carve maze using "recursive" backtracking (stack based)."""
@@ -225,10 +306,11 @@ class MazeGenerator:
             candidates: list[tuple[Cell, Wall]] = [
                 (neighbor, direction)
                 for direction in Wall
-                if self._in_bounds(
+                if self._is_in_bounds(
                     neighbor := self._get_neighbor(curr_cell, direction)
                 )
                 and neighbor not in visited
+                and neighbor not in self.mask
             ]
 
             if not candidates:
@@ -239,19 +321,6 @@ class MazeGenerator:
             self._open_wall(curr_cell, direction)
             current_path.append(next_cell)
             visited.add(next_cell)
-
-        # once done i should have traversed everything
-        def _all_cells() -> set[Cell]:
-            "Returns set of all cells, for checking"
-            return {
-                Cell(x, y)
-                for y in range(self.height)
-                for x in range(self.width)
-            }
-
-        assert len(visited) == self.width * self.height, (
-            f"unvisited cells: {_all_cells() - visited}"
-        )
 
     def solve(self) -> str:
         queue = deque([self.entry])

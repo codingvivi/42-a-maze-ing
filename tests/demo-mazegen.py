@@ -2,13 +2,6 @@ import visualisation
 from mazegen import Cell, MazeGenerator
 
 
-def grid_to_hex(gen: MazeGenerator) -> tuple[str, ...]:
-    rows: list[str] = [
-        "".join(f"{int(cell):x}" for cell in row) for row in gen.grid
-    ]
-    return tuple(rows)
-
-
 def _demo() -> None:
     """Build a maze and print it. Used for debugging purposes."""
 
@@ -32,7 +25,7 @@ def _demo() -> None:
         height=height,
         entry_coor=entry,
         exit_coor=exit,
-        cells=grid_to_hex(gen),
+        cells=gen.hex_grid,
         shortest_path=gen.solve(),
     )
 

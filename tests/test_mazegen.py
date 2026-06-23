@@ -58,7 +58,7 @@ def edge_count(gen: MazeGenerator) -> int:
 )
 def test_perfect_is_spanning_tree(w: int, h: int, seed: int) -> None:
     # we discard inputs that we assume to be true
-    _ = assume(not (w == 1 and h == 1))
+    # _ = assume(not (w == 1 and h == 1))
 
     gen = build(w, h, seed)
 
