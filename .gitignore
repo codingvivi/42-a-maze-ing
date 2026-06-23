@@ -9,6 +9,10 @@ __pycache__
 .ruff_cache/
 .pytest_cache/
 
+# worktrees (and workspaces for jj)
+.worktrees/
+.workspaces/
+
 # build
 build/
 dist/

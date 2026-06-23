@@ -1,7 +1,8 @@
-SRC_DIR := src
+SRC_DIR  := src
+TEST_DIR := tests
 MAIN    := $(SRC_DIR)/a_maze_ing.py
 MODULE  := $(SRC_DIR)/mazegen.py
-CONFIG  ?= config.txt
+MAZEGEN_DEMO  := $(TEST_DIR)/demo-mazegen.py
 
 MYPY_FLAGS := --warn-return-any --warn-unused-ignores --ignore-missing-imports \
               --disallow-untyped-defs --check-untyped-defs
@@ -62,6 +63,9 @@ test:
 test-turnin: lint-strict pytest
 
 test-all: lint-all pytest
+
+demo-mazegen:
+	uv run python $(MAZEGEN_DEMO) $(CONFIG)
 
 # remove python caches
 clean:
