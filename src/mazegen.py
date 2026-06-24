@@ -1,9 +1,9 @@
 """Reusable maze generation and solving on a rectangular grid.
 
-This module exposes :class:`MazeGenerator`, an importable maze engine that
+This module exposes MazeGenerator, an importable maze engine that
 carves a maze over a grid of wall-bit cells and solves it. Each cell stores
-its closed walls as a :class:`Wall` bit flag; coordinates use :class:`Cell`
-``(x, y)`` tuples, with ``y`` growing downward (so North is ``y - 1``).
+its closed walls as a Wall bit flag; coordinates use Cell
+(x, y) tuples, with y growing downward (so North is y - 1).
 
 Example:
     >>> from mazegen import MazeGenerator, Cell
@@ -32,7 +32,7 @@ from typing import NamedTuple
 # Note:
 # x first, then y
 class Cell(NamedTuple):
-    """A point in the grid; ``x`` is the column, ``y`` is the row."""
+    """A point in the grid; x is the column, y is the row."""
 
     x: int
     y: int
@@ -117,7 +117,7 @@ class MazeGenerator:
     """Generate and solve mazes on a rectangular grid of wall-bit cells.
 
     The maze starts fully walled and passages are carved by opening walls.
-    Coordinates use :class:`Cell` ``(x, y)`` with ``y`` growing downward.
+    Coordinates use Cell (x, y) with y growing downward.
 
     Attributes:
         width: Maze width in cells.
@@ -125,7 +125,7 @@ class MazeGenerator:
         entry: Entry cell.
         exit: Exit cell.
         perfect: Whether the maze has exactly one path between any two cells.
-        seed: Seed for reproducible generation, or ``None`` for random.
+        seed: Seed for reproducible generation, or None for random.
     """
 
     def __init__(
@@ -142,8 +142,8 @@ class MazeGenerator:
         Args:
             width: Number of cells horizontally; must be >= 1.
             height: Number of cells vertically; must be >= 1.
-            entry: Entry cell; must be in bounds and differ from ``exit``.
-            exit: Exit cell; must be in bounds and differ from ``entry``.
+            entry: Entry cell; must be in bounds and differ from exit.
+            exit: Exit cell; must be in bounds and differ from entry.
             perfect: If True, generate a perfect maze (single path).
             seed: Optional seed for reproducible generation.
 
@@ -168,6 +168,9 @@ class MazeGenerator:
         self._grid: list[list[Wall]] = [
             [ALL_CLOSED for _ in range(width)] for _ in range(height)
         ]
+        self._all_cells: set[Cell] = {
+            Cell(x, y) for y in range(self.height) for x in range(self.width)
+        }
 
         self.perfect: bool = perfect
         self.seed: int | None = seed
@@ -178,8 +181,8 @@ class MazeGenerator:
         """Immutable snapshot of the maze grid (safe for any caller).
 
         Returns a fresh tuple-of-tuples copy, so mutating the result cannot
-        affect the maze. Index it as ``grid[y][x]``. For zero-copy access,
-        see :attr:`live_grid`.
+        affect the maze. Index it as grid[y][x]. For zero-copy access,
+        see live_grid.
         """
         return tuple(tuple(row) for row in self._grid)
 
@@ -190,7 +193,7 @@ class MazeGenerator:
         Returns the maze's actual backing storage for performance. Mutating
         it may break maze invariants (wall coherence, closed borders). Treat
         as read-only unless you know what you're doing! For a safe copy use
-        :attr:`grid`. Index as ``live_grid[y][x]``.
+        grid. Index as live_grid[y][x].
         """
         return self._grid
 
@@ -204,7 +207,7 @@ class MazeGenerator:
 
     # checks
     def _is_in_bounds(self, cell: Cell) -> bool:
-        """Return True if ``cell`` lies inside the maze bounds."""
+        """Return True if cell lies inside the maze bounds."""
         return 0 <= cell.x < self.width and 0 <= cell.y < self.height
 
     def _is_in_mask(self, cell: Cell) -> bool:
@@ -280,7 +283,8 @@ class MazeGenerator:
         min_h = height_glyphs + 2
         if self.width < min_w or self.height < min_h:
             raise ValueError(
-                f"maze must be at least {min_w}x{min_h} to hold the {label!r} mask"
+                f"maze must be at least {min_w}x{min_h} "
+                f"to hold the {label!r} mask"
             )
         ox = (self.width - total_width) // 2
         oy = (self.height - height_glyphs) // 2
@@ -321,6 +325,43 @@ class MazeGenerator:
             self._open_wall(curr_cell, direction)
             current_path.append(next_cell)
             visited.add(next_cell)
+
+        if not self.perfect:
+            self._braid()
+
+    def _is_dead_end(self, cell: Cell) -> bool:
+        "A cell with exactly one open wall (three closed)."
+        return self._grid[cell.y][cell.x].bit_count() == 3
+
+    def _is_valid_braid(self, cell: Cell, direction: Wall) -> bool:
+        neighbor = self._get_neighbor(cell, direction)
+
+        return (
+            self._is_in_bounds(neighbor)
+            and neighbor not in self.mask
+            and direction in self._grid[cell.y][cell.x]  # wall still closed
+        )
+
+    def _braid(self) -> None:
+        dead_ends: list[Cell] = [
+            cell
+            for cell in self._all_cells
+            if self._is_dead_end(cell)
+            if cell not in self.mask
+        ]
+        self._rng.shuffle(dead_ends)
+
+        for cell in dead_ends:
+            valid: list[Wall] = [
+                direction
+                for direction in Wall
+                if self._is_valid_braid(cell, direction)
+            ]
+            if not valid:
+                continue  # boxed in by border/mask: leave it a dead end
+
+            target: Wall = self._rng.choice(valid)
+            self._open_wall(cell, target)
 
     def solve(self) -> str:
         queue = deque([self.entry])
