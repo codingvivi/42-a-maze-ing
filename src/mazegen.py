@@ -333,7 +333,7 @@ class MazeGenerator:
         "A cell with exactly one open wall (three closed)."
         return self._grid[cell.y][cell.x].bit_count() == 3
 
-    def _is_valid_braid(self, cell: Cell, direction: Wall) -> bool:
+    def _is_valid_braid_target(self, cell: Cell, direction: Wall) -> bool:
         neighbor = self._get_neighbor(cell, direction)
 
         return (
@@ -355,13 +355,49 @@ class MazeGenerator:
             valid: list[Wall] = [
                 direction
                 for direction in Wall
-                if self._is_valid_braid(cell, direction)
+                if self._is_valid_braid_target(cell, direction)
             ]
             if not valid:
                 continue  # boxed in by border/mask: leave it a dead end
 
             target: Wall = self._rng.choice(valid)
             self._open_wall(cell, target)
+
+            collinear: Wall = target | _OPPOSITE[target]
+            perpendics: Wall = ALL_CLOSED & ~collinear
+
+            dx, dy = _DELTA[target]
+
+            for offset in range(1, 3 + 1):
+                checks: Wall = perpendics  # walls to check for
+                # add the offset to both dimensions
+                ox = offset * dx
+                oy = offset * dy
+                # if at beginning or end of loop, ignore first/last
+                if offset == 1:
+                    checks &= ~_OPPOSITE[target]
+                if offset == 3 + 1:
+                    checks &= ~target
+
+                curr_cell = Cell(cell.x + ox, cell.y + oy)
+
+                if self._is_in_bounds(curr_cell):
+                    # if currently checked walls DO exist, break
+                    curr_walls = self._grid[curr_cell.y][curr_cell.x]
+
+                    if curr_walls & checks:
+                        break
+
+            # if no checks failed (fully open area), rebuild wall
+            else:
+                ...  # build wall
+
+            # for dy in range(3):
+            #     for dx in range(3):
+            #         to_check =
+            # else:
+            #     #close wall
+            #     ...
 
     def solve(self) -> str:
         queue = deque([self.entry])
