@@ -1,6 +1,6 @@
 from collections import deque
 
-from hypothesis import assume, given
+from hypothesis import given
 from hypothesis import strategies as strat
 
 from mazegen import Cell, MazeGenerator, Wall
@@ -52,19 +52,18 @@ def edge_count(gen: MazeGenerator) -> int:
 
 
 @given(
-    w=strat.integers(min_value=1, max_value=25),
-    h=strat.integers(min_value=1, max_value=25),
+    w=strat.integers(min_value=9, max_value=100),
+    h=strat.integers(min_value=7, max_value=100),
     seed=strat.integers(min_value=0, max_value=10**6),
 )
 def test_perfect_is_spanning_tree(w: int, h: int, seed: int) -> None:
-    # we discard inputs that we assume to be true
-    _ = assume(not (w == 1 and h == 1))
-
     gen = build(w, h, seed)
 
+    # masked cells aren't carved, so the tree spans only the free cells
+    free = w * h - len(gen.mask)
     # if and only if both of these are true do we have a spanning tree
-    assert reachable_count(gen) == w * h
-    assert edge_count(gen) == w * h - 1
+    assert reachable_count(gen) == free
+    assert edge_count(gen) == free - 1
 
 
 @given(seed=strat.integers(min_value=0, max_value=10**6))
