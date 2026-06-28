@@ -215,6 +215,12 @@ class MazeGenerator:
         return cell in self.mask
 
     def _validate_entry_and_exit(self) -> None:
+        """Validate that entry and exit are usable cells.
+
+        Raises:
+            ValueError: If entry equals exit, either lies out of bounds, or
+                either overlaps the maze mask.
+        """
         if self.entry == self.exit:
             raise ValueError("Entry and exit must differ!")
 
@@ -258,6 +264,18 @@ class MazeGenerator:
         self._grid[cell.y][cell.x] &= ~direction
         self._grid[neighbor.y][neighbor.x] &= ~_OPPOSITE[direction]
 
+    def _close_wall(self, cell: Cell, direction: Wall) -> None:
+        """Re-close the wall on both sides (exact inverse of _open_wall).
+
+        Used to revert a braid that opened a forbidden 3x3 area.
+        """
+        neighbor: Cell = self._get_neighbor(cell, direction)
+        assert self._is_in_bounds(neighbor), (
+            f"_close_wall toward edge: {cell} -> {direction}"
+        )
+        self._grid[cell.y][cell.x] |= direction
+        self._grid[neighbor.y][neighbor.x] |= _OPPOSITE[direction]
+
     @staticmethod
     def _glyph_cells(glyph: Glyph, ox: int, oy: int) -> set[Cell]:
         "Return the glyph's 'X' cells offset to origin (ox, oy)."
@@ -291,7 +309,7 @@ class MazeGenerator:
 
         mask: set[Cell] = set()
         x = ox
-        for glyph, gw in zip(glyphs, widths_glyphs):
+        for glyph, gw in zip(glyphs, widths_glyphs, strict=False):
             mask |= self._glyph_cells(glyph, x, oy)
             x += gw + gap
 
@@ -333,7 +351,56 @@ class MazeGenerator:
         "A cell with exactly one open wall (three closed)."
         return self._grid[cell.y][cell.x].bit_count() == 3
 
-    def _is_valid_braid_target(self, cell: Cell, direction: Wall) -> bool:
+    def _is_3x3(self, cx: int, cy: int) -> bool:
+        """Return True if the 3x3 block at top-left (cx, cy) is fully open.
+
+        Tests all 12 internal walls of the block; the block is assumed to
+        lie on-grid.
+        """
+        for y in range(cy, cy + 3):
+            for x in range(cx, cx + 3):
+                cell = self._grid[y][x]
+                if x < cx + 2 and Wall.E in cell:  # edge to E neighbour closed
+                    return False
+                if y < cy + 2 and Wall.S in cell:  # edge to S neighbour closed
+                    return False
+        return True
+
+    def _makes_3x3(self, a: Cell, b: Cell) -> bool:
+        """Any on-grid 3x3 open block now containing cell a or b."""
+        origins = {
+            (cx, cy)
+            for c in (a, b)
+            for cx in range(c.x - 2, c.x + 1)
+            for cy in range(c.y - 2, c.y + 1)
+            if 0 <= cx <= self.width - 3
+            if 0 <= cy <= self.height - 3
+        }
+        return any(self._is_3x3(cx, cy) for cx, cy in origins)  # . . . . .
+
+    # . . n . .
+    # . w a e .
+    # . . s . .
+    # . . . . .
+
+    # s s s . . . .
+    # s s s . . . .
+    # s s S s X x .
+    # s s s x x x .
+    # x x X x X x .
+    # x x x . . . .
+    #
+    # if s, then 0, 0
+    # if e, then 0, -3
+    # if w, then -3, -3
+    # if n, then
+
+    def _is_braidable(self, cell: Cell, direction: Wall) -> bool:
+        """Return True if cell's wall toward direction may be opened.
+
+        The neighbour must be in bounds, outside the mask, and the wall
+        must still be closed.
+        """
         neighbor = self._get_neighbor(cell, direction)
 
         return (
@@ -343,6 +410,11 @@ class MazeGenerator:
         )
 
     def _braid(self) -> None:
+        """Open dead ends into loops, reverting any forbidden 3x3 area.
+
+        Visits dead ends in random order; for each it opens one valid wall,
+        then re-closes it if doing so created a 3x3 open area.
+        """
         dead_ends: list[Cell] = [
             cell
             for cell in self._all_cells
@@ -355,51 +427,29 @@ class MazeGenerator:
             valid: list[Wall] = [
                 direction
                 for direction in Wall
-                if self._is_valid_braid_target(cell, direction)
+                if self._is_braidable(cell, direction)
             ]
             if not valid:
                 continue  # boxed in by border/mask: leave it a dead end
 
             target: Wall = self._rng.choice(valid)
+            neighbor = self._get_neighbor(cell, target)
+
             self._open_wall(cell, target)
 
-            collinear: Wall = target | _OPPOSITE[target]
-            perpendics: Wall = ALL_CLOSED & ~collinear
-
-            dx, dy = _DELTA[target]
-
-            for offset in range(1, 3 + 1):
-                checks: Wall = perpendics  # walls to check for
-                # add the offset to both dimensions
-                ox = offset * dx
-                oy = offset * dy
-                # if at beginning or end of loop, ignore first/last
-                if offset == 1:
-                    checks &= ~_OPPOSITE[target]
-                if offset == 3 + 1:
-                    checks &= ~target
-
-                curr_cell = Cell(cell.x + ox, cell.y + oy)
-
-                if self._is_in_bounds(curr_cell):
-                    # if currently checked walls DO exist, break
-                    curr_walls = self._grid[curr_cell.y][curr_cell.x]
-
-                    if curr_walls & checks:
-                        break
-
-            # if no checks failed (fully open area), rebuild wall
-            else:
-                ...  # build wall
-
-            # for dy in range(3):
-            #     for dx in range(3):
-            #         to_check =
-            # else:
-            #     #close wall
-            #     ...
+            if self._makes_3x3(cell, neighbor):
+                self._close_wall(cell, target)  # revert
 
     def solve(self) -> str:
+        """Return the shortest entry-to-exit path as N/E/S/W letters.
+
+        Runs a breadth-first search over open walls (FIFO queue, so the
+        first time exit is reached is via a shortest path), reconstructs
+        the path from exit back to entry, and encodes each step.
+
+        Returns:
+            The direction letters from entry to exit, in order.
+        """
         queue = deque([self.entry])
         came_from: dict[Cell, Cell | None] = {
             self.entry: None,
