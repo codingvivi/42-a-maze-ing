@@ -15,7 +15,7 @@ def _demo() -> None:
         height=height,
         entry=entry,
         exit=exit,
-        perfect=True,
+        perfect=False,
         seed=42,
     )
     gen.generate()

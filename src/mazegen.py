@@ -1,9 +1,9 @@
 """Reusable maze generation and solving on a rectangular grid.
 
-This module exposes :class:`MazeGenerator`, an importable maze engine that
+This module exposes MazeGenerator, an importable maze engine that
 carves a maze over a grid of wall-bit cells and solves it. Each cell stores
-its closed walls as a :class:`Wall` bit flag; coordinates use :class:`Cell`
-``(x, y)`` tuples, with ``y`` growing downward (so North is ``y - 1``).
+its closed walls as a Wall bit flag; coordinates use Cell
+(x, y) tuples, with y growing downward (so North is y - 1).
 
 Example:
     >>> from mazegen import MazeGenerator, Cell
@@ -32,7 +32,7 @@ from typing import NamedTuple
 # Note:
 # x first, then y
 class Cell(NamedTuple):
-    """A point in the grid; ``x`` is the column, ``y`` is the row."""
+    """A point in the grid; x is the column, y is the row."""
 
     x: int
     y: int
@@ -117,7 +117,7 @@ class MazeGenerator:
     """Generate and solve mazes on a rectangular grid of wall-bit cells.
 
     The maze starts fully walled and passages are carved by opening walls.
-    Coordinates use :class:`Cell` ``(x, y)`` with ``y`` growing downward.
+    Coordinates use Cell (x, y) with y growing downward.
 
     Attributes:
         width: Maze width in cells.
@@ -125,7 +125,7 @@ class MazeGenerator:
         entry: Entry cell.
         exit: Exit cell.
         perfect: Whether the maze has exactly one path between any two cells.
-        seed: Seed for reproducible generation, or ``None`` for random.
+        seed: Seed for reproducible generation, or None for random.
     """
 
     def __init__(
@@ -142,8 +142,8 @@ class MazeGenerator:
         Args:
             width: Number of cells horizontally; must be >= 1.
             height: Number of cells vertically; must be >= 1.
-            entry: Entry cell; must be in bounds and differ from ``exit``.
-            exit: Exit cell; must be in bounds and differ from ``entry``.
+            entry: Entry cell; must be in bounds and differ from exit.
+            exit: Exit cell; must be in bounds and differ from entry.
             perfect: If True, generate a perfect maze (single path).
             seed: Optional seed for reproducible generation.
 
@@ -168,6 +168,9 @@ class MazeGenerator:
         self._grid: list[list[Wall]] = [
             [ALL_CLOSED for _ in range(width)] for _ in range(height)
         ]
+        self._all_cells: set[Cell] = {
+            Cell(x, y) for y in range(self.height) for x in range(self.width)
+        }
 
         self.perfect: bool = perfect
         self.seed: int | None = seed
@@ -178,8 +181,8 @@ class MazeGenerator:
         """Immutable snapshot of the maze grid (safe for any caller).
 
         Returns a fresh tuple-of-tuples copy, so mutating the result cannot
-        affect the maze. Index it as ``grid[y][x]``. For zero-copy access,
-        see :attr:`live_grid`.
+        affect the maze. Index it as grid[y][x]. For zero-copy access,
+        see live_grid.
         """
         return tuple(tuple(row) for row in self._grid)
 
@@ -190,7 +193,7 @@ class MazeGenerator:
         Returns the maze's actual backing storage for performance. Mutating
         it may break maze invariants (wall coherence, closed borders). Treat
         as read-only unless you know what you're doing! For a safe copy use
-        :attr:`grid`. Index as ``live_grid[y][x]``.
+        grid. Index as live_grid[y][x].
         """
         return self._grid
 
@@ -204,7 +207,7 @@ class MazeGenerator:
 
     # checks
     def _is_in_bounds(self, cell: Cell) -> bool:
-        """Return True if ``cell`` lies inside the maze bounds."""
+        """Return True if cell lies inside the maze bounds."""
         return 0 <= cell.x < self.width and 0 <= cell.y < self.height
 
     def _is_in_mask(self, cell: Cell) -> bool:
@@ -212,6 +215,12 @@ class MazeGenerator:
         return cell in self.mask
 
     def _validate_entry_and_exit(self) -> None:
+        """Validate that entry and exit are usable cells.
+
+        Raises:
+            ValueError: If entry equals exit, either lies out of bounds, or
+                either overlaps the maze mask.
+        """
         if self.entry == self.exit:
             raise ValueError("Entry and exit must differ!")
 
@@ -255,6 +264,18 @@ class MazeGenerator:
         self._grid[cell.y][cell.x] &= ~direction
         self._grid[neighbor.y][neighbor.x] &= ~_OPPOSITE[direction]
 
+    def _close_wall(self, cell: Cell, direction: Wall) -> None:
+        """Re-close the wall on both sides (exact inverse of _open_wall).
+
+        Used to revert a braid that opened a forbidden 3x3 area.
+        """
+        neighbor: Cell = self._get_neighbor(cell, direction)
+        assert self._is_in_bounds(neighbor), (
+            f"_close_wall toward edge: {cell} -> {direction}"
+        )
+        self._grid[cell.y][cell.x] |= direction
+        self._grid[neighbor.y][neighbor.x] |= _OPPOSITE[direction]
+
     @staticmethod
     def _glyph_cells(glyph: Glyph, ox: int, oy: int) -> set[Cell]:
         "Return the glyph's 'X' cells offset to origin (ox, oy)."
@@ -280,14 +301,15 @@ class MazeGenerator:
         min_h = height_glyphs + 2
         if self.width < min_w or self.height < min_h:
             raise ValueError(
-                f"maze must be at least {min_w}x{min_h} to hold the {label!r} mask"
+                f"maze must be at least {min_w}x{min_h} "
+                f"to hold the {label!r} mask"
             )
         ox = (self.width - total_width) // 2
         oy = (self.height - height_glyphs) // 2
 
         mask: set[Cell] = set()
         x = ox
-        for glyph, gw in zip(glyphs, widths_glyphs):
+        for glyph, gw in zip(glyphs, widths_glyphs, strict=False):
             mask |= self._glyph_cells(glyph, x, oy)
             x += gw + gap
 
@@ -322,7 +344,112 @@ class MazeGenerator:
             current_path.append(next_cell)
             visited.add(next_cell)
 
+        if not self.perfect:
+            self._braid()
+
+    def _is_dead_end(self, cell: Cell) -> bool:
+        "A cell with exactly one open wall (three closed)."
+        return self._grid[cell.y][cell.x].bit_count() == 3
+
+    def _is_3x3(self, cx: int, cy: int) -> bool:
+        """Return True if the 3x3 block at top-left (cx, cy) is fully open.
+
+        Tests all 12 internal walls of the block; the block is assumed to
+        lie on-grid.
+        """
+        for y in range(cy, cy + 3):
+            for x in range(cx, cx + 3):
+                cell = self._grid[y][x]
+                if x < cx + 2 and Wall.E in cell:  # edge to E neighbour closed
+                    return False
+                if y < cy + 2 and Wall.S in cell:  # edge to S neighbour closed
+                    return False
+        return True
+
+    def _makes_3x3(self, a: Cell, b: Cell) -> bool:
+        """Any on-grid 3x3 open block now containing cell a or b."""
+        origins = {
+            (cx, cy)
+            for c in (a, b)
+            for cx in range(c.x - 2, c.x + 1)
+            for cy in range(c.y - 2, c.y + 1)
+            if 0 <= cx <= self.width - 3
+            if 0 <= cy <= self.height - 3
+        }
+        return any(self._is_3x3(cx, cy) for cx, cy in origins)  # . . . . .
+
+    # . . n . .
+    # . w a e .
+    # . . s . .
+    # . . . . .
+
+    # s s s . . . .
+    # s s s . . . .
+    # s s S s X x .
+    # s s s x x x .
+    # x x X x X x .
+    # x x x . . . .
+    #
+    # if s, then 0, 0
+    # if e, then 0, -3
+    # if w, then -3, -3
+    # if n, then
+
+    def _is_braidable(self, cell: Cell, direction: Wall) -> bool:
+        """Return True if cell's wall toward direction may be opened.
+
+        The neighbour must be in bounds, outside the mask, and the wall
+        must still be closed.
+        """
+        neighbor = self._get_neighbor(cell, direction)
+
+        return (
+            self._is_in_bounds(neighbor)
+            and neighbor not in self.mask
+            and direction in self._grid[cell.y][cell.x]  # wall still closed
+        )
+
+    def _braid(self) -> None:
+        """Open dead ends into loops, reverting any forbidden 3x3 area.
+
+        Visits dead ends in random order; for each it opens one valid wall,
+        then re-closes it if doing so created a 3x3 open area.
+        """
+        dead_ends: list[Cell] = [
+            cell
+            for cell in self._all_cells
+            if self._is_dead_end(cell)
+            if cell not in self.mask
+        ]
+        self._rng.shuffle(dead_ends)
+
+        for cell in dead_ends:
+            valid: list[Wall] = [
+                direction
+                for direction in Wall
+                if self._is_braidable(cell, direction)
+            ]
+            if not valid:
+                continue  # boxed in by border/mask: leave it a dead end
+
+            target: Wall = self._rng.choice(valid)
+            neighbor = self._get_neighbor(cell, target)
+
+            self._open_wall(cell, target)
+
+            if self._makes_3x3(cell, neighbor):
+                self._close_wall(cell, target)  # revert
+
     def solve(self) -> str:
+        """Return the shortest entry-to-exit path as N/E/S/W letters.
+
+        Runs a breadth-first search over open walls (FIFO queue, so the
+        first time exit is reached is via a shortest path), reconstructs
+        the path from exit back to entry, and encodes each step.
+
+        Returns:
+            The direction letters from entry to exit, in order.
+        """
         queue = deque([self.entry])
         came_from: dict[Cell, Cell | None] = {
             self.entry: None,
