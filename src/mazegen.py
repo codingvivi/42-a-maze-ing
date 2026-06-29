@@ -16,6 +16,7 @@ Example:
 """
 
 import random
+import sys
 from collections import deque
 from collections.abc import Mapping
 from enum import IntFlag
@@ -287,7 +288,12 @@ class MazeGenerator:
         }
 
     def _build_mask(self) -> set[Cell]:
-        "Return the label's glyph cells, centered in this maze."
+        """Return the label's glyph cells, centered in this maze.
+
+        When the maze is too small to hold the label, the pattern is
+        omitted: an empty set is returned (so generation proceeds as a
+        normal maze) and a notice is printed to stderr, per the subject.
+        """
         label = self._mask_label
 
         glyphs: list[Glyph] = [_FONT[ch] for ch in label]
@@ -300,10 +306,13 @@ class MazeGenerator:
         min_w = total_width + 2
         min_h = height_glyphs + 2
         if self.width < min_w or self.height < min_h:
-            raise ValueError(
-                f"maze must be at least {min_w}x{min_h} "
-                f"to hold the {label!r} mask"
+            print(
+                f"maze too small for the {label!r} pattern "
+                f"(needs at least {min_w}x{min_h}); "
+                f"generating without it",
+                file=sys.stderr,
             )
+            return set()
         ox = (self.width - total_width) // 2
         oy = (self.height - height_glyphs) // 2
 
