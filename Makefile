@@ -16,6 +16,12 @@ MYPY_FLAGS := --warn-return-any --warn-unused-ignores --ignore-missing-imports \
 install:
 	uv sync
 
+# build mazegen installable 
+build:
+	uv build
+	cp dist/mazegen-1.0.0.tar.gz .
+	cp dist/mazegen-1.0.0-py3-none-any.whl .
+
 # run the main script (override the config with: make run CONFIG=other.txt)
 run:
 	uv run python $(MAIN) $(CONFIG)
