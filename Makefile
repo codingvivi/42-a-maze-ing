@@ -13,7 +13,7 @@ MYPY_FLAGS := --warn-return-any --warn-unused-ignores --ignore-missing-imports \
         clean fclean
 
 # install project dependencies
-install:
+install: 
 	uv sync
 
 # build mazegen installable 
