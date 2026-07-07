@@ -2,8 +2,8 @@
 
 
 from typing import NamedTuple
-
 from mazegen import Cell
+
 
 NORTH = 1  # 0001
 EAST = 2  # 0010
@@ -20,28 +20,28 @@ class Maze(NamedTuple):
     shortest_path: str
 
 
-def load_output(path: str) -> Maze:
-    """Reads "output_maze.txt" and
-    loads the information into a tuple
-    to conveniently work with it.
-    """
+# def load_output(path: str) -> Maze:
+#     """Reads "output_maze.txt" and
+#     loads the information into a tuple
+#     to conveniently work with it.
+#     """
 
-    with open(path) as o:
-        lines = tuple(line.rstrip("\n") for line in o)
+#     with open(path) as o:
+#         lines = tuple(line.rstrip("\n") for line in o)
 
-    blank_line = lines.index("")
+#     blank_line = lines.index("")
 
-    grid_lines = lines[:blank_line]
-    width = len(lines[0])
-    height = blank_line
-    x, y = (int(axis) for axis in (lines[blank_line + 1].split(",")))
-    entry_coor = Cell(x, y)
-    x, y = (int(axis) for axis in (lines[blank_line + 2].split(",")))
-    exit_coor = Cell(x, y)
-    cells = tuple(list(row for row in grid_lines))
-    shortest_path = lines[blank_line + 3]
+#     grid_lines = lines[:blank_line]
+#     width = len(lines[0])
+#     height = blank_line
+#     x, y = (int(axis) for axis in (lines[blank_line + 1].split(",")))
+#     entry_coor = Cell(x, y)
+#     x, y = (int(axis) for axis in (lines[blank_line + 2].split(",")))
+#     exit_coor = Cell(x, y)
+#     cells = tuple(list(row for row in grid_lines))
+#     shortest_path = lines[blank_line + 3]
 
-    return Maze(width, height, entry_coor, exit_coor, cells, shortest_path)
+#     return Maze(width, height, entry_coor, exit_coor, cells, shortest_path)
 
 
 def path_parser(
@@ -55,7 +55,7 @@ def path_parser(
     the index order is always maze_drawing[row][col].
     """
 
-    for direction in shortest_path:
+    for i, direction in enumerate(shortest_path):
         if direction == "N":
             for _ in range(2):
                 row -= 1
@@ -74,12 +74,11 @@ def path_parser(
             maze_drawing[row][col] = "■"
             col -= 1
             maze_drawing[row][col] = " ■ "
-    maze_drawing[row][col] = " E "
     return maze_drawing
 
 
 def draw_path(
-    maze_data: Maze, maze_drawing: list[list[str]]
+    maze: Maze, maze_drawing: list[list[str]]
 ) -> list[list[str]]:
     """Draw the solution path into the maze.
 
@@ -87,18 +86,18 @@ def draw_path(
     row first, column second,
     matching the engine's grid[y][x].
     """
+    start_col = maze.entry_coor.x * 2 + 1
+    start_row = maze.entry_coor.y * 2 + 1
+    end_col = maze.exit_coor.x * 2 + 1
+    end_row = maze.exit_coor.y * 2 + 1
 
-    start_col = maze_data.entry_coor.x * 2 + 1
-    start_row = maze_data.entry_coor.y * 2 + 1
-    end_col = maze_data.exit_coor.x * 2 + 1
-    end_row = maze_data.exit_coor.y * 2 + 1
-
-    maze_drawing[start_row][start_col] = " S "
-    maze_drawing[end_row][end_col] = " E "
-
-    return path_parser(
-        maze_data.shortest_path, start_col, start_row, maze_drawing
+    solved_maze = path_parser(
+        maze.shortest_path, start_col, start_row, maze_drawing
     )
+    solved_maze[end_row][end_col] = " E "
+    solved_maze[start_row][start_col] = " S "
+
+    return solved_maze
 
 
 def gen_vis(maze: Maze) -> list[list[str]]:
@@ -205,13 +204,23 @@ def gen_vis(maze: Maze) -> list[list[str]]:
 
         y_char += 2
 
-    return output
+    maze_drawing = output
+
+    start_col = maze.entry_coor.x * 2 + 1
+    start_row = maze.entry_coor.y * 2 + 1
+    end_col = maze.exit_coor.x * 2 + 1
+    end_row = maze.exit_coor.y * 2 + 1
+
+    maze_drawing[start_row][start_col] = " S "
+    maze_drawing[end_row][end_col] = " E "
+
+    return maze_drawing
 
 
 def colourify(raw_maze: list[list[str]], colour: int) -> list[list[str]]:
     """Gives colour to the maze."""
     colours = (
-        "\033[0m",
+        "\033[0m", "", "",
         "\033[91m",
         "\033[92m",
         "\033[93m",
@@ -230,19 +239,6 @@ def colourify(raw_maze: list[list[str]], colour: int) -> list[list[str]]:
     ]
 
     return colourful_maze
-
-
-def show_options(maze: Maze) -> str:
-    """Wrapping function that takes input from user
-    to choose a colour for the maze.
-    """
-    print("Choose a maze colour:")
-    colour = int(
-        input("1: RED - 2: GREEN - 3: YELLOW - 4: BLUE - 5: ORANGE\n")
-    )
-    solved_maze = draw_path(maze, colourify(gen_vis(maze), colour))
-    return "".join(string for row in solved_maze for string in row)
-    # we just merged everything into a single string
 
 
 if __name__ == "__main__":

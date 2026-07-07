@@ -1,0 +1,11 @@
+# entry == start == 'S'
+# exit == 'E'
+# for a seedless maze, comment/delete the SEED line
+
+WIDTH=20
+HEIGHT=15
+ENTRY=0,0
+EXIT=19,4
+OUTPUT_FILE=output_maze.txt
+PERFECT=True
+#SEED=42
