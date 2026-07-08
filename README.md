@@ -128,7 +128,7 @@ the application catches these.
 
 The application is run as `python3 a_maze_ing.py config.txt`.
 The config file is plain text, one `KEY=VALUE` per line;
-lines starting with `#` are comments and are ignored.
+lines starting with `#` are comments and are ignored, as well as empty lines.
 The mandatory keys are:
 
 | Key | Description | Example |
@@ -140,11 +140,19 @@ The mandatory keys are:
 | `OUTPUT_FILE` | Output filename | `OUTPUT_FILE=maze.txt` |
 | `PERFECT` | Is the maze perfect? | `PERFECT=True` |
 
-Additional keys (e.g. `seed`) may be supported.
+An additional "SEED" key can be added following the examples' format above to give a specific seed for the generator to create reproducible mazes.
 
-> The configuration parser, its exact accepted syntax and error handling,
-> and the default config committed to the repo are part of the application layer.
-> _To be completed by @agromano._
+
+Valid settings for the configuration file:
+- Width and height: integers between 2 and 998.
+- Entry and exit:
+  Format: "x,y" where "x" can be an integer between zero and [*width* - 1] and "y" can be an integer between zero and [*height* - 1].
+  Entry and exit must be different.
+- Output file can have any name as far as the OS allows it.
+- *Perfect* allows two options only: "True" or "False".
+- Seed: Any integer.
+
+A default configuration file is included. A backup is recommended before changing it.
 
 ##### Output file format
 
@@ -161,14 +169,27 @@ All lines are `\n`-terminated.
 
 ##### Visual representation
 
-> The interactive visual representation
-> (terminal ASCII rendering; regenerate, show/hide the solution path,
-> change wall colours, optional "42" colours)
-> is part of the application layer.
-> _To be completed by @agromano._
->
+The visualiser simply parses the generated hexadecimal grid, translating every number to ASCII symbols, printing every cell's walls (or lack thereof) to a string. The algorithm checks which of each cell's four walls is closed or open and prints wall-like ASCII symbols or spaces respectively.
+
+Using the shortest path string found by the generator, the visualiser can draw this solution too.
+The path can be shown and hidden in the program.
+
+There are five different colours available to choose from: red, green, yellow, blue and orange.
+
+
 > The engine ships an internal ASCII debug printer (`_ascii_debug`)
 > that was used to eyeball mazes while building the engine.
+
+##### The program
+
+Available options:
+1: Generate or re-generate the maze.
+  Unless there's no seed set, it will always show the same maze. It can be used after configuration file modification.
+2: Toggle path.
+  Shows or hides the shortest solution path.
+3 to 12: Change colours.
+13: Exit the program.
+
 
 ## Maze generation algorithm
 
