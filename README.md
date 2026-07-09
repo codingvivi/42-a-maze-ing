@@ -114,8 +114,8 @@ Accessors:
 - `live_grid` — the live backing storage, no copy (advanced / zero-copy use).
 - `hex_grid` — the raw wall bits as one hexadecimal digit per cell.
 
-> The engine's internal structure is **not** the output-file format;
-> the application converts it (`int(cell)` → hex digit) when writing the output.
+The engine's internal structure is **not** the output-file format;
+the application converts it (`int(cell)` → hex digit) when writing the output.
 
 The constructor validates its parameters and raises `ValueError`
 on non-positive dimensions, an out-of-bounds entry/exit, `entry == exit`,
