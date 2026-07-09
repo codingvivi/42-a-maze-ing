@@ -176,10 +176,6 @@ The path can be shown and hidden in the program.
 
 There are five different colours available to choose from: red, green, yellow, blue and orange.
 
-
-> The engine ships an internal ASCII debug printer (`_ascii_debug`)
-> that was used to eyeball mazes while building the engine.
-
 ##### The program
 
 How to use it:
