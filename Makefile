@@ -7,9 +7,10 @@ MAZEGEN_DEMO  := $(TEST_DIR)/demo-mazegen.py
 MYPY_FLAGS := --warn-return-any --warn-unused-ignores --ignore-missing-imports \
               --disallow-untyped-defs --check-untyped-defs
 
-.PHONY: install run debug \
+.PHONY: install build run run-mazegen demo-mazegen debug \
         ruff flake8 mypy mypy-strict \
         lint lint-strict lint-all \
+        test test-turnin test-all \
         clean fclean
 
 # install project dependencies
@@ -66,9 +67,9 @@ lint-all: ruff flake8 mypy-strict
 test:
 	uv run pytest
 
-test-turnin: lint-strict pytest
+test-turnin: lint-strict test
 
-test-all: lint-all pytest
+test-all: lint-all test
 
 demo-mazegen:
 	uv run python $(MAZEGEN_DEMO) $(CONFIG)
