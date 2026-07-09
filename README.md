@@ -182,6 +182,13 @@ There are five different colours available to choose from: red, green, yellow, b
 
 ##### The program
 
+How to use it:
+- Customise the 'config.txt' file (optional).
+- Type 'python3 a_maze_ing.py config.txt'.
+- Choose one or more options.
+- You can find the output file in the same directory corresponding to the latest generated maze ('output_maze.txt' by default).
+
+
 Available options:
 1: Generate or re-generate the maze.
   Unless there's no seed set, it will always show the same maze. It can be used after configuration file modification.
@@ -435,11 +442,20 @@ documentation," Hypothesis 6.156.1 documentation. Accessed: Jul. 05, 2026.
 [Online]. Available:
 https://hypothesis.readthedocs.io/en/latest/reference/strategies.html#hypothesis.strategies.integers
 
+[9] TextToolbox, "Line & box drawing symbols"
+Convenient website to copy ASCII characters. Accessed: Jun. 27, 2026. [Online] Available:
+https://texttoolbox.net/line-box-drawing-symbols/
+
+[10] GitHub, Inc., "Choose an open source license"
+Accessed: Jul. 09, 2026. [Online]. Available:
+https://choosealicense.com/
+
 ### AI usage
 
-Claude Opus 4.8
-was used mainly for gruntwork tasks, like:
+Claude Opus 4.8, Duck AI and Perplexity
+were used mainly for gruntwork tasks, like:
 
-- refactoring (e.g. update argument structures of functions across files)
+- Refactoring (e.g. update argument structures of functions across files)
 - Editing/correcting sections of the README
 - Convert Zotero's reference formatting to markdown
+- General concept explanations.
