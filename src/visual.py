@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-
+import time
+import os
 from typing import NamedTuple
 from mazegen import Cell
 
@@ -74,6 +75,9 @@ def path_parser(
             maze_drawing[row][col] = "■"
             col -= 1
             maze_drawing[row][col] = " ■ "
+        os.system('clear')
+        print("".join(string for row in maze_drawing for string in row))
+        time.sleep(0.02)
     return maze_drawing
 
 
@@ -237,8 +241,90 @@ def colourify(raw_maze: list[list[str]], colour: int) -> list[list[str]]:
         [f"{colours[colour]}{wall}{colours[0]}" for wall in row]
         for row in raw_maze
     ]
-
     return colourful_maze
+
+
+class Mask:
+    """Contains methods related to the painting and colouting of the mask."""
+    #def __init__(self, cells: list[Cell], colour: int) -> None:
+        #self.first_cell: tuple[int, int] = find_mask(
+        #self.colour: int = colour
+
+
+    def _find_mask(self, cells: tuple[str, ...]) -> tuple[int, int]:
+        """Finds the first closed cell, which corresponds to the mask."""
+        row: int = 0
+
+        for row_of_cells in cells:
+            col = 0
+            for cell in row_of_cells:
+                if cell == "F" or cell == "f":
+                    return [row * 2 + 1, col * 2 + 1]
+                col += 1
+            row += 1
+        return [-1, -1]
+
+
+    def _fill_cells(self, first_cell: tuple[int, int], maze_drawing: list[list[str]]) -> list[list[str]]:
+        """'Fills' the closed cells corresponding to the mask.
+         Walks a path that goes inside each cell that is part of the mask,
+         changing its content. 'J' is the jump the parser has to do
+         from the '4' to the '2'.
+        """
+        row = first_cell[0]
+        col = first_cell[1]
+
+        maze_drawing[row][col] = "███"
+        for direction in "SSEESSJWWNNEENNWW":
+            if direction == "N":
+                    row -= 2
+                    maze_drawing[row][col] = "███"
+            elif direction == "S":
+                    row += 2
+                    maze_drawing[row][col] = "███"
+            elif direction == "E":
+                col += 2
+                maze_drawing[row][col] = "███"
+            elif direction == "W":
+                col -= 2
+                maze_drawing[row][col] = "███"
+            elif direction == "J":
+                col += 8
+                maze_drawing[row][col] = "███"
+        return maze_drawing
+
+    def paint(self, cells: tuple[str, ...], maze_drawing: list[list[str]], mask_colour: int) -> list[list[str]]:
+        """Paints the mask with the specified colour.
+         It must be done after the rest of
+         the maze has already been painted.
+        """
+        colours = (
+            "\033[0m", "", "", "", "", "", "", "",
+            "\033[91m",
+            "\033[92m",
+            "\033[93m",
+            "\033[94m",
+            "\033[38;2;255;165;0m",
+        )
+        #    RED = '\033[91m'
+        #    GREEN = '\033[92m'
+        #    YELLOW = '\033[93m'
+        #    BLUE = '\033[94m'
+        #    ORANGE = '\033[38;2;255;165;0m'
+        #    RESET = '\033[0m'
+
+        first_cell = self._find_mask(cells)
+        if first_cell == [-1, -1]:
+            return maze_drawing
+
+        colourful_maze = self._fill_cells(first_cell, maze_drawing)
+        colourful_mask = [
+                [f"{colours[mask_colour]}{string}{colours[0]}" if string == "███"
+                else string
+                for string in row]
+                for row in colourful_maze
+        ]
+        return colourful_mask
 
 
 if __name__ == "__main__":

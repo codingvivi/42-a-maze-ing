@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 from mazegen import Cell, MazeGenerator
-from visual import Maze, draw_path, gen_vis, colourify
+from visual import Maze, draw_path, gen_vis, colourify, Mask
 from typing import NamedTuple
 import sys
-
+import os
 
 class Config(NamedTuple):
     wid: int
@@ -89,18 +89,22 @@ def load_config(filename: str) -> Config:
     return cfg
 
 
-def show_options(maze: Maze) -> str:
+def show_options() -> str:
     """Prints the available options to the standard output.
      Returns user's input as a string.
     """
     print()
-    print("1: regen")
-    print("2: toggle path")
-    print(" walls colour:")
-    print("3: red - 4: green - 5: yellow - 6: blue - 7: orange")
-    print(" '42' colour:")
-    print("8: red - 9: green - 10: yellow - 11: blue - 12: orange")
-    print("13: exit")
+    print("regen:       1")
+    print("toggle path: 2")
+    print()
+    print("colour:  walls:  pattern:")
+    print("red:         3       8")
+    print("green:       4       9")
+    print("yellow:      5       10")
+    print("blue:        6       11")
+    print("orange:      7       12")
+    print()
+    print("exit:        13")
     print()
 
     usr_i = input()
@@ -108,18 +112,25 @@ def show_options(maze: Maze) -> str:
     return usr_i
 
 
-def input_handler(maze: Maze, usr_i: int, path: int, colour: int) -> Maze:
+def input_handler(maze: Maze, usr_i: int, path: int, colours: tuple[int, int]) -> Maze:
     """Does what the user commands (see show_options())."""
+    maze_colour, mask_colour = colours
+    mask = Mask()
     if usr_i == 1:
         maze = create()
+    elif usr_i in range(3, 8):
+        maze_colour = usr_i
     elif usr_i in range(8,13):
-        exit("wip") # tbc
+        mask_colour = usr_i
     elif usr_i == 13:
-        exit("bye")
+        print("bye")
+        sys.exit(0)
 
-    solved_maze = colourify(gen_vis(maze), colour)
+    solved_maze = colourify(gen_vis(maze), maze_colour)
+    solved_maze = mask.paint(maze.cells, solved_maze, mask_colour)
     if path == 1:
         solved_maze = draw_path(maze, solved_maze)
+    os.system('clear')
 
     print("".join(string for row in solved_maze for string in row))
     return maze
@@ -155,40 +166,47 @@ def create() -> Maze:
         shortest_path=gen.solve(),
     )
 
-    with open(cfg.out, "w") as o:
-        for row in gen.hex_grid:
-            o.write(row.upper() + "\n")
-        o.write("\n")
-        o.write(str(cfg.ent[0]) + "," + str(cfg.ent[1]) + "\n")
-        o.write(str(cfg.exi[0]) + "," + str(cfg.exi[1]) + "\n")
-        o.write(gen.solve())
+    try:
+        with open(cfg.out, "w") as o:
+            for row in gen.hex_grid:
+                o.write(row.upper() + "\n")
+            o.write("\n")
+            o.write(str(cfg.ent[0]) + "," + str(cfg.ent[1]) + "\n")
+            o.write(str(cfg.exi[0]) + "," + str(cfg.exi[1]) + "\n")
+            o.write(gen.solve())
+    except Exception as e:
+        print(f"There was an issue trying to create the output file:\n{e}")
 
     return maze
 
 
 def main() -> None:
     """Orchestrator"""
-    path = -1  # path isn't shown by default
-    colour = 7 # orange is the default colour because.
+    path: int = -1  # path isn't shown by default
+    maze_colour: int = 7 # orange is the default colour because.
+    mask_colour: int = 9 # green is mask's default colour
     print()
     print("   === A-MAZE-ING ===")
     print(">>> This is the way! <<<")
     print()
     maze = create()
+    print("".join(string for row in gen_vis(maze) for string in row))
     while True:
         try:
-            usr_i = int(show_options(maze))
+            usr_i = int(show_options())
             if usr_i not in range(1, 14):
                 raise ValueError("number not in valid range")
                 continue
             if usr_i == 2:
                 path *= -1
             elif usr_i in range(3,8):
-                colour = usr_i
+                maze_colour = usr_i
+            elif usr_i in range(8, 13):
+                mask_colour = usr_i
         except ValueError as e:
             print("Enter a valid number!")
             continue
-        maze = input_handler(maze, usr_i, path, colour)
+        maze = input_handler(maze, usr_i, path, [maze_colour, mask_colour])
 
 
 if __name__ == "__main__":
