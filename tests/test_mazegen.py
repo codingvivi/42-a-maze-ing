@@ -1,9 +1,16 @@
+import subprocess
+import sys
 from collections import deque
+from pathlib import Path
 
+import maze_analyzer as analyzer
+import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as strat
 
 from mazegen import Cell, MazeGenerator, Wall
+
+APP = Path(__file__).resolve().parents[1] / "src" / "a_maze_ing.py"
 
 # Independent direction map, deliberately NOT mazegen's _DELTA
 # bug in the engine's neighbour logic wont't hide inside test checking it
@@ -143,12 +150,11 @@ def dead_end_count(gen: MazeGenerator) -> int:
 )
 @settings(deadline=None)
 def test_playable_min_loops(w: int, h: int, seed: int) -> None:
-    # PERFECT=False must offer >= 2 independent routes (a single loop,
-    # i.e. a tree with one wall removed, is explicitly not acceptable).
+    # PERFECT=False must offer >= 2 independent routes
     gen = build(w, h, seed, perfect=False)
     free = w * h - len(gen.mask)
-    # region is fully connected (also asserted by test_is_imperfect), so
-    # circuit rank = edges - (spanning-tree edges)
+    # region is fully connected (also asserted by test_is_imperfect)
+    # so circuit rank = edges - (spanning-tree edges)
     assert reachable_count(gen) == free
     assert edge_count(gen) - (free - 1) >= 2
 
@@ -160,7 +166,7 @@ def test_playable_min_loops(w: int, h: int, seed: int) -> None:
 )
 @settings(deadline=None)
 def test_playable_dead_ends(w: int, h: int, seed: int) -> None:
-    # subject: dead ends must stay rare -> at most a couple are tolerated
+    # subject: dead ends must stay rare
     gen = build(w, h, seed, perfect=False)
     assert dead_end_count(gen) <= 2
 
@@ -186,6 +192,103 @@ def test_required_cells_open(w: int, h: int, seed: int) -> None:
             continue
         open_walls = sum(wall not in grid[cell.y][cell.x] for wall in Wall)
         assert open_walls >= 2  # a corridor, not a dead end or an island
+
+
+def write_output_file(gen: MazeGenerator, path: Path) -> None:
+    """Write gen to path in the subject's output format.
+
+    Hex rows one per line, a blank separator, then entry, exit and the
+    shortest path; every line ends with a newline. Mirrors what the app
+    (a_maze_ing.py) emits, so the provided analyzer reads it as-is.
+    """
+    with open(path, "w") as out:
+        for row in gen.hex_grid:
+            out.write(row.upper() + "\n")
+        out.write("\n")
+        out.write(f"{gen.entry.x},{gen.entry.y}\n")
+        out.write(f"{gen.exit.x},{gen.exit.y}\n")
+        out.write(gen.solve() + "\n")
+
+
+@pytest.mark.parametrize("seed", [0, 1, 7, 42])
+def test_analyzer_accepts_perfect(tmp_path: Path, seed: int) -> None:
+    # the provided maze_analyzer must read our output and rule it PERFECT
+    gen = build(20, 15, seed, perfect=True)
+    out = tmp_path / "maze.txt"
+    write_output_file(gen, out)
+
+    report = analyzer.analyze(analyzer.Maze.from_file(str(out)))
+    assert not report.incoherent  # every shared wall agrees on both sides
+    assert report.loops == 0  # a single path, no cycle
+    line = analyzer.verdict(
+        report, analyzer.DEFAULT_MIN_LOOPS, analyzer.DEFAULT_MAX_DEAD_ENDS
+    )
+    assert line.startswith("PERFECT")
+
+
+@pytest.mark.parametrize("seed", [0, 1, 7, 42])
+def test_analyzer_accepts_playable(tmp_path: Path, seed: int) -> None:
+    # ...and rule the default (PERFECT=False) board a Pac-Man-usable one
+    gen = build(20, 15, seed, perfect=False)
+    out = tmp_path / "maze.txt"
+    write_output_file(gen, out)
+
+    report = analyzer.analyze(analyzer.Maze.from_file(str(out)))
+    assert not report.incoherent
+    assert not report.unreachable_key_cells  # corners + centre are open
+    assert report.loops >= analyzer.DEFAULT_MIN_LOOPS
+    assert report.dead_ends[0] <= analyzer.DEFAULT_MAX_DEAD_ENDS
+    line = analyzer.verdict(
+        report, analyzer.DEFAULT_MIN_LOOPS, analyzer.DEFAULT_MAX_DEAD_ENDS
+    )
+    assert line.startswith("Pac-Man-USABLE")
+
+
+def run_app(tmp_path: Path, perfect: str, seed: int = 42) -> Path:
+    """Run the real app on a config, return the output-file path it writes.
+
+    The app writes the output file at startup (create()) before its
+    interactive menu, so closing stdin makes it emit the file and then
+    exit on EOF. We only care about the file it leaves behind.
+    """
+    cfg = tmp_path / "config.txt"
+    out = tmp_path / "out.txt"
+    cfg.write_text(
+        f"WIDTH=20\nHEIGHT=15\nENTRY=0,0\nEXIT=19,4\n"
+        f"OUTPUT_FILE={out}\nPERFECT={perfect}\nSEED={seed}\n"
+    )
+    subprocess.run(
+        [sys.executable, str(APP), str(cfg)],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        cwd=tmp_path,
+        timeout=60,
+        check=False,  # app exits non-zero on the menu's EOF; file is written
+    )
+    return out
+
+
+@pytest.mark.parametrize(
+    "perfect, prefix",
+    [("True", "PERFECT"), ("False", "Pac-Man-USABLE")],
+)
+def test_app_output_passes_analyzer(
+    tmp_path: Path, perfect: str, prefix: str
+) -> None:
+    # end-to-end: the real app (teammate's writer) must produce a file the
+    # provided analyzer accepts for the mode the config requested.
+    out = run_app(tmp_path, perfect)
+    if not out.exists():
+        pytest.skip("a_maze_ing.py produced no output file in this env")
+
+    report = analyzer.analyze(analyzer.Maze.from_file(str(out)))
+    assert not report.incoherent  # shared walls agree on both sides
+    assert report.disconnected_corridors == 0  # fully connected board
+    line = analyzer.verdict(
+        report, analyzer.DEFAULT_MIN_LOOPS, analyzer.DEFAULT_MAX_DEAD_ENDS
+    )
+    assert line.startswith(prefix)
 
 
 @given(seed=strat.integers(min_value=0, max_value=10**6))
