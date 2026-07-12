@@ -405,46 +405,52 @@ and discussion of mazegen's API contract.
 
 ### References
 
-[1] Astral Software Inc., astral-sh/ruff. (Jul. 05, 2026). Rust. Astral.
+[1] Astral Software Inc., *astral-sh/ruff*. (Jul. 05, 2026). Rust. Astral.
 Accessed: Jul. 05, 2026. [Online]. Available:
 https://github.com/astral-sh/ruff
 
-[2] Astral Software Inc., astral-sh/uv. (Jul. 05, 2026). Rust. Astral.
+[2] Astral Software Inc., *astral-sh/uv*. (Jul. 05, 2026). Rust. Astral.
 Accessed: Jul. 05, 2026. [Online]. Available: https://github.com/astral-sh/uv
 
-[3] O. Lev, hatchling: Modern, extensible Python build backend. Python.
+[3] "Choose an open source license," *Choose a License*. Accessed:
+Jul. 12, 2026. [Online]. Available: https://choosealicense.com/
+
+[4] O. Lev, *hatchling: Modern, extensible Python build backend*. Python.
 Accessed: Jul. 05, 2026. [OS Independent]. Available:
 https://hatch.pypa.io/latest/
 
-[4] D. R. MacIver, Z. Hatfield-Dodds, and many other contributors,
-Hypothesis: A new approach to property-based testing. (Nov. 2019). Python.
+[5] D. R. MacIver, Z. Hatfield-Dodds, and many other contributors,
+*Hypothesis: A new approach to property-based testing*. (Nov. 2019). Python.
 doi: 10.21105/joss.01891.
 
-[5] H. Krekel and pytest-dev team, "pytest documentation," pytest
-documentation. Accessed: Jul. 05, 2026. [Online]. Available:
+[6] "Line & Box Drawing Symbols — Free Unicode Box Text Decorator,"
+*TextToolbox*. Accessed: Jul. 12, 2026. [Online]. Available:
+https://texttoolbox.net/line-box-drawing-symbols/
+
+[7] J. Buck, *Mazes for Programmers: Code Your Own Twisty Little Passages*,
+1st ed. Raleigh, NC, USA: The Pragmatic Bookshelf, 2015.
+
+[8] P. L. Ioannidis and P. Stamatopoulos, "Procedural Maze Generation,"
+B.S. thesis, Dept. Informat. Telecommun., National and Kapodistrian Univ.
+of Athens, Athens, Greece, 2016.
+
+[9] H. Krekel and pytest-dev team, "pytest documentation,"
+*pytest documentation*. Accessed: Jul. 05, 2026. [Online]. Available:
 https://docs.pytest.org/en/stable/
 
-[6] F. Bruhin, F. Bruynooghe, H. Krekel, B. Laugher, B. Oliveira, and
-R. Pfannschmidt, pytest-dev/pytest. (Jul. 05, 2026). Python. pytest-dev.
+[10] F. Bruhin, F. Bruynooghe, H. Krekel, B. Laugher, B. Oliveira, and
+R. Pfannschmidt, *pytest-dev/pytest*. (Jul. 05, 2026). Python. pytest-dev.
 Accessed: Jul. 05, 2026. [Online]. Available:
 https://github.com/pytest-dev/pytest
 
-[7] Hypothesis team, "Quickstart - Hypothesis 6.156.1 documentation,"
-Hypothesis 6.156.1 documentation. Accessed: Jul. 05, 2026. [Online].
+[11] Hypothesis team, "Quickstart - Hypothesis 6.156.1 documentation,"
+*Hypothesis 6.156.1 documentation*. Accessed: Jul. 05, 2026. [Online].
 Available: https://hypothesis.readthedocs.io/en/latest/quickstart.html
 
-[8] Hypothesis team, "Strategies Reference - Hypothesis 6.156.1
-documentation," Hypothesis 6.156.1 documentation. Accessed: Jul. 05, 2026.
+[12] Hypothesis team, "Strategies Reference - Hypothesis 6.156.1
+documentation," *Hypothesis 6.156.1 documentation*. Accessed: Jul. 05, 2026.
 [Online]. Available:
 https://hypothesis.readthedocs.io/en/latest/reference/strategies.html#hypothesis.strategies.integers
-
-[9] TextToolbox, "Line & box drawing symbols"
-Convenient website to copy ASCII characters. Accessed: Jun. 27, 2026. [Online] Available:
-https://texttoolbox.net/line-box-drawing-symbols/
-
-[10] GitHub, Inc., "Choose an open source license"
-Accessed: Jul. 09, 2026. [Online]. Available:
-https://choosealicense.com/
 
 ### AI usage
 

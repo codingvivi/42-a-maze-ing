@@ -1,6 +1,6 @@
 from collections import deque
 
-from hypothesis import given
+from hypothesis import given, settings
 from hypothesis import strategies as strat
 
 from mazegen import Cell, MazeGenerator, Wall
@@ -121,6 +121,71 @@ def test_no_3x3_open(w: int, h: int, seed: int, perfect: bool) -> None:
                 for i in range(3)
             )
             assert not internal_open
+
+
+def dead_end_count(gen: MazeGenerator) -> int:
+    """Non-mask cells with exactly one open wall (i.e. three closed)."""
+    total = 0
+    for y in range(gen.height):
+        for x in range(gen.width):
+            if Cell(x, y) in gen.mask:
+                continue
+            closed = sum(wall in gen.grid[y][x] for wall in Wall)
+            if closed == 3:
+                total += 1
+    return total
+
+
+@given(
+    w=strat.integers(min_value=9, max_value=100),
+    h=strat.integers(min_value=7, max_value=100),
+    seed=strat.integers(min_value=0, max_value=10**6),
+)
+@settings(deadline=None)
+def test_playable_min_loops(w: int, h: int, seed: int) -> None:
+    # PERFECT=False must offer >= 2 independent routes (a single loop,
+    # i.e. a tree with one wall removed, is explicitly not acceptable).
+    gen = build(w, h, seed, perfect=False)
+    free = w * h - len(gen.mask)
+    # region is fully connected (also asserted by test_is_imperfect), so
+    # circuit rank = edges - (spanning-tree edges)
+    assert reachable_count(gen) == free
+    assert edge_count(gen) - (free - 1) >= 2
+
+
+@given(
+    w=strat.integers(min_value=9, max_value=100),
+    h=strat.integers(min_value=7, max_value=100),
+    seed=strat.integers(min_value=0, max_value=10**6),
+)
+@settings(deadline=None)
+def test_playable_dead_ends(w: int, h: int, seed: int) -> None:
+    # subject: dead ends must stay rare -> at most a couple are tolerated
+    gen = build(w, h, seed, perfect=False)
+    assert dead_end_count(gen) <= 2
+
+
+@given(
+    w=strat.integers(min_value=9, max_value=100),
+    h=strat.integers(min_value=7, max_value=100),
+    seed=strat.integers(min_value=0, max_value=10**6),
+)
+@settings(deadline=None)
+def test_required_cells_open(w: int, h: int, seed: int) -> None:
+    # subject: the four corners and the centre must be open corridors
+    gen = build(w, h, seed, perfect=False)
+    grid = gen.grid
+    corners = {
+        Cell(0, 0),
+        Cell(w - 1, 0),
+        Cell(0, h - 1),
+        Cell(w - 1, h - 1),
+    }
+    for cell in corners | {Cell(w // 2, h // 2)}:
+        if cell in gen.mask:  # gap alignment keeps the centre off the mask
+            continue
+        open_walls = sum(wall not in grid[cell.y][cell.x] for wall in Wall)
+        assert open_walls >= 2  # a corridor, not a dead end or an island
 
 
 @given(seed=strat.integers(min_value=0, max_value=10**6))

@@ -258,6 +258,16 @@ class MazeGenerator:
     # methods
 
     def _open_wall(self, cell: Cell, direction: Wall) -> None:
+        """Carve a passage by clearing the wall bit on both sides.
+
+        Derives the neighbour from direction, asserts it is in bounds,
+        then clears the shared wall on cell and on the neighbour (via
+        _OPPOSITE) so the two stay coherent.
+
+        Args:
+            cell: The cell whose wall is opened.
+            direction: Which wall of cell to open.
+        """
         neighbor: Cell = self._get_neighbor(cell, direction)
         assert self._is_in_bounds(neighbor), (
             f"_open_wall toward edge: {cell} -> {direction}"

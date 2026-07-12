@@ -3,6 +3,7 @@ TEST_DIR := tests
 MAIN    := $(SRC_DIR)/a_maze_ing.py
 MODULE  := $(SRC_DIR)/mazegen.py
 MAZEGEN_DEMO  := $(TEST_DIR)/demo-mazegen.py
+CONFIG  ?= $(SRC_DIR)/config.txt
 
 MYPY_FLAGS := --warn-return-any --warn-unused-ignores --ignore-missing-imports \
               --disallow-untyped-defs --check-untyped-defs
