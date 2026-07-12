@@ -79,7 +79,7 @@ gen = MazeGenerator(
     height=15,
     entry=Cell(0, 0),
     exit=Cell(19, 14),
-    perfect=True,   # False -> braided maze (loops, dead ends removed)
+    perfect=True,   # False -> playable board: loops + open corners/centre
     seed=42,        # any seed reproduces the same maze; None for random
 )
 gen.generate()
@@ -217,17 +217,29 @@ Randomness comes from a seeded `random.Random`,
 so the **same seed reproduces the exact same maze**.
 
 - **`perfect=True`** stops here:
-  the carve is a spanning tree, so there is exactly one path between any two cells.
-- **`perfect=False`** then runs a **braiding** pass:
-  it visits dead ends in random order and opens one extra wall on each to create loops.
-  After each opening it checks the affected neighbourhood
-  and **reverts** the wall if it would produce a forbidden 3×3 fully-open area
-  (the subject caps corridor width at 2).
+  the carve is a spanning tree, so there is exactly one path between any
+  two cells (no loops at all).
+- **`perfect=False`** (the default) turns that tree into a **playable
+  Pac-Man board**. A `_make_playable` pass:
+  1. **opens the four corners and the centre** into corridors (degree ≥ 2),
+     so the ghosts, super-pac-gums and player start always have a home;
+  2. **braids dead ends into loops** — visiting them in random order and
+     opening one extra wall each, trying every direction — until at most a
+     couple of dead ends remain (zero is achievable, the no-dead-end bonus);
+  3. **guarantees at least two independent routes**, so a chased player
+     always has an alternative (a single loop is explicitly not enough).
+
+  Every wall it opens is **reverted** if it would produce a forbidden 3×3
+  fully-open area (the subject caps corridor width at 2). Because the carve
+  starts as a spanning tree, each extra wall opened adds exactly one
+  independent loop — which makes the "≥ 2 routes" guarantee cheap to count.
 
 The **"42" pattern** is placed as a mask before carving:
 the cells forming the "4" and "2" glyphs are marked forced-closed,
 and generation (and braiding) simply carve around them,
 leaving them as an isolated, fully-walled block.
+The glyphs are positioned so the blank column between the "4" and the "2"
+lands on the maze centre, keeping the player-start cell off the mask.
 If the maze is too small to hold the glyphs,
 the pattern is omitted and a notice is printed to stderr, as the subject allows.
 
@@ -246,8 +258,10 @@ since its carve is exactly a spanning tree.
 Perfect mazes correspond directly to spanning trees in graph theory,
 which makes the perfect-maze property trivial to guarantee
 and easy to test (connectivity + exactly `cells − 1` open edges).
-Braiding is then a small, optional post-pass
-to get non-perfect mazes with loops, without changing the core generator.
+The playability pass is then a structured post-step over that tree —
+opening corners and centre, braiding dead ends, and guaranteeing at least
+two independent routes — turning it into the default Pac-Man board without
+touching the core carve.
 
 ## Reusability
 
@@ -271,8 +285,8 @@ run over many random widths, heights, and seeds:
 
 - **spanning tree** (perfect): flood-fill reaches every free cell,
   and the open edge count is exactly `free − 1` (connected, no cycles);
-- **braided** (non-perfect): still fully connected,
-  but with more edges than a tree (loops exist);
+- **playable board** (non-perfect): fully connected, **≥ 2 independent
+  loops**, **corners + centre open**, and **≤ 2 dead ends**;
 - **no 3×3 open area** anywhere;
 - **wall coherence**: every shared wall agrees on both sides;
 - **closed borders**: the external border stays walled;
@@ -282,6 +296,10 @@ run over many random widths, heights, and seeds:
 
 The tests use an **independent** direction map (not the engine's `_DELTA`) on purpose,
 so a bug in the engine's neighbour logic can't hide inside its own verifier.
+They also feed the engine's output through the subject's provided
+`tests/maze_analyzer.py`, asserting it is ruled a *perfect* maze or a
+*Pac-Man-usable* board according to the requested mode — both for a
+directly-written file and for the one the real app produces end-to-end.
 
 ## Team and project management
 
