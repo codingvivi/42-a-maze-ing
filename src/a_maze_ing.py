@@ -28,41 +28,41 @@ def load_config(filename: str) -> Config:
     error_msg = "Configuration file has an invalid format."
     seed = None
     try:
-        with open(filename, 'r') as file:
+        with open(filename, "r") as file:
             i = 0
             for line in file:
                 line = line.strip()
-                if not line or line.startswith('#'):
+                if not line or line.startswith("#"):
                     continue
                 i += 1
                 try:
-                    key, value = line.split('=')
+                    key, value = line.split("=")
                     key = key.strip()
                     value = value.strip()
                     if key == "WIDTH":
                         width = int(value)
                         limit_checker(key, width, 2, 999)
-                    elif key == 'HEIGHT':
+                    elif key == "HEIGHT":
                         height = int(value)
                         limit_checker(key, height, 2, 999)
-                    elif key == 'ENTRY':
-                        x = value.split(',')[0]
-                        y = value.split(',')[1]
+                    elif key == "ENTRY":
+                        x = value.split(",")[0]
+                        y = value.split(",")[1]
                         entry = Cell(int(x), int(y))
-                    elif key == 'EXIT':
-                        x = value.split(',')[0]
-                        y = value.split(',')[1]
+                    elif key == "EXIT":
+                        x = value.split(",")[0]
+                        y = value.split(",")[1]
                         exitc = Cell(int(x), int(y))
-                    elif key == 'OUTPUT_FILE':
+                    elif key == "OUTPUT_FILE":
                         output = value
-                    elif key == 'PERFECT':
+                    elif key == "PERFECT":
                         if value == "True":
                             perfect = True
                         elif value == "False":
                             perfect = False
                         else:
                             raise ValueError("Invalid value!")
-                    elif key == 'SEED':
+                    elif key == "SEED":
                         seed = int(value)
                     else:
                         raise ValueError("Invalid key!")
@@ -94,7 +94,7 @@ def load_config(filename: str) -> Config:
 
 def show_options() -> str:
     """Prints the available options to the standard output.
-     Returns user's input as a string.
+    Returns user's input as a string.
     """
     print()
     print("regen:       1")
@@ -116,9 +116,7 @@ def show_options() -> str:
 
 
 def input_handler(
-    maze: Maze, usr_i: int,
-    path: int,
-    colours: tuple[int, int]
+    maze: Maze, usr_i: int, path: int, colours: tuple[int, int]
 ) -> Maze:
     """Does what the user commands (see show_options())."""
     maze_colour, mask_colour = colours
@@ -137,7 +135,7 @@ def input_handler(
     solved_maze = mask.paint(maze.cells, solved_maze, mask_colour)
     if path == 1:
         solved_maze = draw_path(maze, solved_maze)
-    os.system('clear')
+    os.system("clear")
 
     print("".join(string for row in solved_maze for string in row))
     return maze
@@ -145,8 +143,8 @@ def input_handler(
 
 def create() -> Maze:
     """Loads config file, generates and
-     sets the maze ready to print and
-     creates the output file.
+    sets the maze ready to print and
+    creates the output file.
     """
 
     try:
@@ -189,6 +187,7 @@ def create() -> Maze:
             o.write(str(cfg.ent[0]) + "," + str(cfg.ent[1]) + "\n")
             o.write(str(cfg.exi[0]) + "," + str(cfg.exi[1]) + "\n")
             o.write(gen.solve())
+            o.write("\n")
     except Exception as e:
         print(f"There was an issue trying to create the output file:\n{e}")
 
@@ -227,5 +226,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-
     main()
