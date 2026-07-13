@@ -8,10 +8,18 @@ CONFIG  ?= $(SRC_DIR)/config.txt
 MYPY_FLAGS := --warn-return-any --warn-unused-ignores --ignore-missing-imports \
               --disallow-untyped-defs --check-untyped-defs
 
+# turn-in packaging
+NAME      := a_maze_ing
+DIST_DIR  := dist
+STAGE_DIR := $(DIST_DIR)/$(NAME)_turnin
+TAG       ?=
+TARBALL   := $(DIST_DIR)/$(NAME)_turnin$(if $(TAG),_$(TAG)).tar.gz
+
 .PHONY: install build run run-mazegen demo-mazegen debug \
         ruff flake8 mypy mypy-strict \
         lint lint-strict lint-all \
         test test-turnin test-all \
+        dist stage checks-dist \
         clean fclean
 
 # install project dependencies
@@ -71,6 +79,30 @@ test:
 test-turnin: lint-strict test
 
 test-all: lint-all test
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# dist: stage the working tree (honoring .gitignore) into a turn-in tarball
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# submission gate: strict lint + a fresh reusable-package build
+checks-dist: lint-strict build
+	@printf '\033[1;32m✓ checks passed — ready to package\n\033[0m'
+
+# mirror the working tree into the staging dir, excluding whatever
+# .gitignore excludes, so the archive matches exactly what git tracks
+# (the mazegen-*.whl/tar.gz artifacts are included; caches/.venv/docs/42
+# are not). Requires rsync.
+stage:
+	rm -rf $(STAGE_DIR)
+	mkdir -p $(STAGE_DIR)
+	rsync -a --filter=':- .gitignore' \
+	      --exclude='.git' --exclude='$(DIST_DIR)' \
+	      ./ $(STAGE_DIR)/
+
+# build the turn-in archive. override the name with: make dist TAG=v1.0
+dist: checks-dist stage
+	tar -czf $(TARBALL) -C $(STAGE_DIR) .
+	@printf '\033[1;32m✓ turn-in archive: %s\n\033[0m' "$(TARBALL)"
 
 demo-mazegen:
 	uv run python $(MAZEGEN_DEMO) $(CONFIG)

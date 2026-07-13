@@ -17,10 +17,10 @@ __pycache__
 build/
 dist/
 
-# reusable package build artifacts (force-add the final one for turn-in:
-#   git add -f mazegen-*.whl mazegen-*.tar.gz)
-mazegen-*.whl
-mazegen-*.tar.gz
+# NOTE: the mazegen-*.whl / mazegen-*.tar.gz at the repo root are the
+# reusable-package deliverable (subject Chapter VI) and are intentionally
+# tracked so they land in the turn-in. Only the uv build scratch under
+# dist/ (ignored above) is transient.
 
 # coverage
 .coverage
@@ -40,5 +40,9 @@ Thumbs.db
 # not mine
 docs/42
 
+# vendored MLX wheels — not needed in the turn-in
+vendor/
+
 # local / personal
 CLAUDE.md
+.claude/
