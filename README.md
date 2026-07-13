@@ -1,5 +1,8 @@
 *This project has been created as part of the 42 curriculum by lrain, agromano.*
 
+SPDX-License-Identifier: MIT
+
+
 # A-Maze-ing
 
 ## Description
@@ -479,3 +482,11 @@ were used mainly for gruntwork tasks, like:
 - Editing/correcting sections of the README
 - Convert Zotero's reference formatting to markdown
 - General concept explanations.
+
+## License
+
+This project is licensed under the MIT License. See the LICENSE file for details.
+
+
+
+This project was made by lrain and agromano in June/July 2026 as part of 42berlin's core curriculum.
