@@ -40,3 +40,9 @@ select = ["E", "W", "F", "I", "UP", "B", "SIM"]
 strict = true
 # files = ["src"]
 
+# maze_analyzer.py is the subject-provided validator; it is not our code
+# to type-fix, so exclude it from our type gate (tests still import it).
+[[tool.mypy.overrides]]
+module = "maze_analyzer"
+ignore_errors = true
+

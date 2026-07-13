@@ -258,6 +258,16 @@ class MazeGenerator:
     # methods
 
     def _open_wall(self, cell: Cell, direction: Wall) -> None:
+        """Carve a passage by clearing the wall bit on both sides.
+
+        Derives the neighbour from direction, asserts it is in bounds,
+        then clears the shared wall on cell and on the neighbour (via
+        _OPPOSITE) so the two stay coherent.
+
+        Args:
+            cell: The cell whose wall is opened.
+            direction: Which wall of cell to open.
+        """
         neighbor: Cell = self._get_neighbor(cell, direction)
         assert self._is_in_bounds(neighbor), (
             f"_open_wall toward edge: {cell} -> {direction}"
@@ -313,7 +323,11 @@ class MazeGenerator:
                 file=sys.stderr,
             )
             return set()
-        ox = (self.width - total_width) // 2
+        # Bias horizontal centering so the empty column between the two
+        # glyphs lands on the maze centre; the centre cell then stays
+        # mask-free and can be an open corridor (PERFECT=False needs it).
+        first_gw = widths_glyphs[0]
+        ox = max(0, min(self.width // 2 - first_gw, self.width - total_width))
         oy = (self.height - height_glyphs) // 2
 
         mask: set[Cell] = set()
@@ -354,7 +368,7 @@ class MazeGenerator:
             visited.add(next_cell)
 
         if not self.perfect:
-            self._braid()
+            self._make_playable()
 
     def _is_dead_end(self, cell: Cell) -> bool:
         "A cell with exactly one open wall (three closed)."
@@ -418,36 +432,143 @@ class MazeGenerator:
             and direction in self._grid[cell.y][cell.x]  # wall still closed
         )
 
-    def _braid(self) -> None:
-        """Open dead ends into loops, reverting any forbidden 3x3 area.
+    def _open_wall_count(self, cell: Cell) -> int:
+        """Number of open walls of a cell (4 minus the closed-wall bits)."""
+        return 4 - self._grid[cell.y][cell.x].bit_count()
 
-        Visits dead ends in random order; for each it opens one valid wall,
-        then re-closes it if doing so created a 3x3 open area.
+    def _required_open_cells(self) -> set[Cell]:
+        """Cells a playable (PERFECT=False) board must keep open.
+
+        The four grid corners (ghosts / super-pac-gums) and the centre
+        (player start). The centre stays mask-free thanks to the gap
+        alignment in _build_mask; any that still fall on the mask are
+        dropped defensively.
         """
-        dead_ends: list[Cell] = [
-            cell
-            for cell in self._all_cells
-            if self._is_dead_end(cell)
-            if cell not in self.mask
-        ]
-        self._rng.shuffle(dead_ends)
+        corners = {
+            Cell(0, 0),
+            Cell(self.width - 1, 0),
+            Cell(0, self.height - 1),
+            Cell(self.width - 1, self.height - 1),
+        }
+        centre = Cell(self.width // 2, self.height // 2)
+        return {c for c in corners | {centre} if c not in self.mask}
 
-        for cell in dead_ends:
-            valid: list[Wall] = [
-                direction
-                for direction in Wall
-                if self._is_braidable(cell, direction)
+    def _open_required_cells(self) -> int:
+        """Ensure every required-open cell is a corridor (degree >= 2).
+
+        For each such cell, open braidable walls (skipping any that would
+        create a 3x3) until it has two open passages. Best effort: a cell
+        boxed in by border and mask is left as is. Returns the number of
+        walls opened, each of which adds one independent loop.
+        """
+        opened = 0
+        for cell in self._required_open_cells():
+            while self._open_wall_count(cell) < 2:
+                for direction in Wall:
+                    if not self._is_braidable(cell, direction):
+                        continue
+                    neighbor = self._get_neighbor(cell, direction)
+                    self._open_wall(cell, direction)
+                    if self._makes_3x3(cell, neighbor):
+                        self._close_wall(cell, direction)
+                        continue
+                    opened += 1
+                    break
+                else:
+                    break  # no direction worked: leave it under-connected
+        return opened
+
+    def _braid(self, max_dead_ends: int = 2) -> int:
+        """Open dead ends into loops until at most max_dead_ends remain.
+
+        For each dead end it tries every braidable direction and keeps the
+        first that does not create a 3x3 area (reverting the others).
+        Braiding never creates a new dead end, so re-collecting until the
+        count is low enough - or a pass makes no progress - converges.
+
+        Args:
+            max_dead_ends: Dead ends tolerated on the board (0 fully braids).
+
+        Returns:
+            The number of walls opened, i.e. independent loops added (the
+            maze starts as a spanning tree, so each extra passage is +1).
+        """
+        opened = 0
+        while True:
+            dead_ends: list[Cell] = [
+                cell
+                for cell in self._all_cells
+                if cell not in self.mask
+                if self._is_dead_end(cell)
             ]
-            if not valid:
-                continue  # boxed in by border/mask: leave it a dead end
+            if len(dead_ends) <= max_dead_ends:
+                break
+            self._rng.shuffle(dead_ends)
 
-            target: Wall = self._rng.choice(valid)
-            neighbor = self._get_neighbor(cell, target)
+            progress = False
+            for cell in dead_ends:
+                if not self._is_dead_end(cell):
+                    continue  # resolved by a neighbour's braid this pass
+                for direction in Wall:
+                    if not self._is_braidable(cell, direction):
+                        continue
+                    neighbor = self._get_neighbor(cell, direction)
+                    self._open_wall(cell, direction)
+                    if self._makes_3x3(cell, neighbor):
+                        self._close_wall(cell, direction)
+                        continue
+                    opened += 1
+                    progress = True
+                    break
+            if not progress:
+                break  # only border/mask-boxed dead ends remain
+        return opened
 
-            self._open_wall(cell, target)
+    def _add_loops(self, count: int) -> int:
+        """Open up to count extra non-3x3 walls to force enough loops.
 
-            if self._makes_3x3(cell, neighbor):
-                self._close_wall(cell, target)  # revert
+        Fallback for boards with too few dead ends to braid (small
+        mazes). Scans cells in shuffled order and opens the first valid
+        walls that do not create a 3x3. Returns how many it opened.
+        """
+        if count <= 0:
+            return 0
+        cells = list(self._all_cells)
+        self._rng.shuffle(cells)
+
+        opened = 0
+        for cell in cells:
+            if opened >= count:
+                break
+            if cell in self.mask:
+                continue
+            for direction in Wall:
+                if not self._is_braidable(cell, direction):
+                    continue
+                neighbor = self._get_neighbor(cell, direction)
+                self._open_wall(cell, direction)
+                if self._makes_3x3(cell, neighbor):
+                    self._close_wall(cell, direction)
+                    continue
+                opened += 1
+                break
+        return opened
+
+    def _make_playable(self, max_dead_ends: int = 2) -> None:
+        """Turn the spanning tree into a Pac-Man-playable board.
+
+        Opens the required corridors (corners + centre), braids dead ends
+        down to max_dead_ends, and guarantees at least two independent
+        routes so a chased player always has an alternative.
+
+        Args:
+            max_dead_ends: Dead ends tolerated (0 requests a fully braided
+                board, the no-dead-end bonus).
+        """
+        loops = self._open_required_cells()
+        loops += self._braid(max_dead_ends)
+        if loops < 2:
+            self._add_loops(2 - loops)
 
     def solve(self) -> str:
         """Return the shortest entry-to-exit path as N/E/S/W letters.
