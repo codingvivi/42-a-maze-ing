@@ -6,6 +6,7 @@ from typing import NamedTuple
 import sys
 import os
 
+
 class Config(NamedTuple):
     wid: int
     hei: int
@@ -70,12 +71,14 @@ def load_config(filename: str) -> Config:
                     print(f"Couldn't understand {line!r}.")
                     sys.exit(f"({e!r})")
             expected_lines = 7
-            if seed == None:
+            if seed is None:
                 expected_lines = 6
             if i > expected_lines:
                 sys.exit(f"Configuration file has too many lines ({i}).")
     except FileNotFoundError:
         sys.exit(f"Error: Configuration file {filename!r} not found.")
+    except Exception as e:
+        sys.exit(f"Error while trying to read the configuration file: {e}")
     try:
         cfg = Config(width, height, entry, exitc, output, perfect, seed)
     except UnboundLocalError as e:
@@ -107,12 +110,16 @@ def show_options() -> str:
     print("exit:        13")
     print()
 
-    usr_i = input()
+    usr_i = input("Type your choice >> ")
 
     return usr_i
 
 
-def input_handler(maze: Maze, usr_i: int, path: int, colours: tuple[int, int]) -> Maze:
+def input_handler(
+    maze: Maze, usr_i: int,
+    path: int,
+    colours: tuple[int, int]
+) -> Maze:
     """Does what the user commands (see show_options())."""
     maze_colour, mask_colour = colours
     mask = Mask()
@@ -120,7 +127,7 @@ def input_handler(maze: Maze, usr_i: int, path: int, colours: tuple[int, int]) -
         maze = create()
     elif usr_i in range(3, 8):
         maze_colour = usr_i
-    elif usr_i in range(8,13):
+    elif usr_i in range(8, 13):
         mask_colour = usr_i
     elif usr_i == 13:
         print("bye")
@@ -141,7 +148,13 @@ def create() -> Maze:
      sets the maze ready to print and
      creates the output file.
     """
-    cfg = load_config(sys.argv[1])
+
+    try:
+        cfg = load_config(sys.argv[1])
+    except FileNotFoundError:
+        sys.exit(f"Error: Configuration file {sys.argv[1]!r} not found.")
+    except Exception as e:
+        sys.exit(f"Error while trying to read the configuration file: {e}")
 
     try:
         gen = MazeGenerator(
@@ -154,7 +167,9 @@ def create() -> Maze:
         )
     except ValueError as e:
         sys.exit(f"Impossible maze parameter: {e}")
-    
+    except Exception as e:
+        sys.exit(f"Error while trying to load configuration: {e}")
+
     gen.generate()
 
     maze = Maze(
@@ -183,12 +198,14 @@ def create() -> Maze:
 def main() -> None:
     """Orchestrator"""
     path: int = -1  # path isn't shown by default
-    maze_colour: int = 7 # orange is the default colour because.
-    mask_colour: int = 9 # green is mask's default colour
+    maze_colour: int = 7  # orange is the default colour because.
+    mask_colour: int = 9  # green is mask's default colour
     print()
     print("   === A-MAZE-ING ===")
     print(">>> This is the way! <<<")
     print()
+    if len(sys.argv) != 2:
+        sys.exit("Correct syntax: 'a_maze_ing.py <config_file>'")
     maze = create()
     print("".join(string for row in gen_vis(maze) for string in row))
     while True:
@@ -199,17 +216,16 @@ def main() -> None:
                 continue
             if usr_i == 2:
                 path *= -1
-            elif usr_i in range(3,8):
+            elif usr_i in range(3, 8):
                 maze_colour = usr_i
             elif usr_i in range(8, 13):
                 mask_colour = usr_i
-        except ValueError as e:
+        except ValueError:
             print("Enter a valid number!")
             continue
-        maze = input_handler(maze, usr_i, path, [maze_colour, mask_colour])
+        maze = input_handler(maze, usr_i, path, (maze_colour, mask_colour))
 
 
 if __name__ == "__main__":
-    """"""
 
     main()
