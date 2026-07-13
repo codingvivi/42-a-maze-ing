@@ -46,3 +46,5 @@ strict = true
 module = "maze_analyzer"
 ignore_errors = true
 
+[license]
+license="MIT"
