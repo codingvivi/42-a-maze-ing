@@ -43,3 +43,6 @@ docs/42
 
 # local / personal
 CLAUDE.md
+
+# output file
+output_maze.txt
