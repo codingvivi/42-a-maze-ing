@@ -12,7 +12,7 @@ MYPY_FLAGS := --warn-return-any --warn-unused-ignores --ignore-missing-imports \
 
 # turn-in packaging
 NAME      := a-maze-ing
-TAG       ?= v1.0.2
+TAG       ?= v1.0.3
 DIST_DIR  := dist
 STAGE_DIR := $(DIST_DIR)/$(NAME)_turnin
 TURNIN    := $(DIST_DIR)/$(NAME)_turnin_$(TAG).tar.gz
