@@ -103,7 +103,7 @@ stage: build
 	rsync -a --filter=':- .gitignore' \
 		--exclude='.git/' --exclude='.jj/' --exclude='.hypothesis/' \
 		--exclude='$(DIST_DIR)/' --exclude='$(TEST_DIR)/' --exclude='$(VENDOR_DIR)/'\
-		--exclude='$(DOCS_DIR)'
+		--exclude='$(DOCS_DIR)'\
 		./ $(STAGE_DIR)/
 	cp $(DIST_DIR)/mazegen-*.tar.gz $(DIST_DIR)/mazegen-*.whl $(STAGE_DIR)/
 	cp .gitignore $(STAGE_DIR)/.gitignore
