@@ -1,7 +1,7 @@
 SRC_DIR  := src
 TEST_DIR := tests
 DOCS_DIR := docs/
-vendor_DIR := vendor/
+VENDOR_DIR := vendor/
 MAIN    := $(SRC_DIR)/a_maze_ing.py
 MODULE  := $(SRC_DIR)/mazegen.py
 MAZEGEN_DEMO  := $(TEST_DIR)/demo-mazegen.py
