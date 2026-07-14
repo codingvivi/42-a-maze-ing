@@ -9,28 +9,26 @@ MYPY_FLAGS := --warn-return-any --warn-unused-ignores --ignore-missing-imports \
               --disallow-untyped-defs --check-untyped-defs
 
 # turn-in packaging
-NAME      := a_maze_ing
+NAME      := a-maze-ing
+TAG       ?=
 DIST_DIR  := dist
 STAGE_DIR := $(DIST_DIR)/$(NAME)_turnin
-TAG       ?=
-TARBALL   := $(DIST_DIR)/$(NAME)_turnin$(if $(TAG),_$(TAG)).tar.gz
+TURNIN    := $(DIST_DIR)/$(NAME)_turnin_$(TAG).tar.gz
 
 .PHONY: install build run run-mazegen demo-mazegen debug \
         ruff flake8 mypy mypy-strict \
         lint lint-strict lint-all \
         test test-turnin test-all \
-        dist stage checks-dist \
+        require-tag stage dist tag publish \
         clean fclean
 
 # install project dependencies
 install: 
 	uv sync
 
-# build mazegen installable 
+# build the mazegen installable (sdist + wheel) into dist/
 build:
 	uv build
-	cp dist/mazegen-1.0.0.tar.gz .
-	cp dist/mazegen-1.0.0-py3-none-any.whl .
 
 # run the main script (override the config with: make run CONFIG=other.txt)
 run:
@@ -80,32 +78,53 @@ test-turnin: lint-strict test
 
 test-all: lint-all test
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# dist: stage the working tree (honoring .gitignore) into a turn-in tarball
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+demo-mazegen:
+	uv run python $(MAZEGEN_DEMO) $(CONFIG)
 
-# submission gate: strict lint + a fresh reusable-package build
-checks-dist: lint-strict build
-	@printf '\033[1;32m✓ checks passed — ready to package\n\033[0m'
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# turn-in
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# The turn-in tarball is a self-contained copy of the project with the built
+# mazegen-* package placed at its root and a .gitignore that TRACKS that
+# package
+# Download it onto a school machine, extract it, and commit the tree
+# into the intranet git repo: `git add .` then picks up mazegen-* at the root
 
-# mirror the working tree into the staging dir, excluding whatever
-# .gitignore excludes, so the archive matches exactly what git tracks
-# (the mazegen-*.whl/tar.gz artifacts are included; caches/.venv/docs/42
-# are not). Requires rsync.
-stage:
+# fail early if TAG wasn't provided
+require-tag:
+	@test -n "$(TAG)" || { echo "TAG is required, e.g. make dist TAG=v1.0.0"; exit 1; }
+
+# stage the working tree (minus dev cruft) + the built package into STAGE_DIR
+stage: build
 	rm -rf $(STAGE_DIR)
 	mkdir -p $(STAGE_DIR)
 	rsync -a --filter=':- .gitignore' \
-	      --exclude='.git' --exclude='$(DIST_DIR)' \
-	      ./ $(STAGE_DIR)/
+		--exclude='.git/' --exclude='.jj/' --exclude='.hypothesis/' \
+		--exclude='$(DIST_DIR)/' --exclude='$(TEST_DIR)/' --exclude='docs/42/' \
+		./ $(STAGE_DIR)/
+	cp $(DIST_DIR)/mazegen-*.tar.gz $(DIST_DIR)/mazegen-*.whl $(STAGE_DIR)/
+	cp .gitignore $(STAGE_DIR)/.gitignore
+	printf '\n# turn-in: track the built mazegen package at the repo root\n!/mazegen-*.whl\n!/mazegen-*.tar.gz\n' \
+		>> $(STAGE_DIR)/.gitignore
 
-# build the turn-in archive. override the name with: make dist TAG=v1.0
-dist: checks-dist stage
-	tar -czf $(TARBALL) -C $(STAGE_DIR) .
-	@printf '\033[1;32m✓ turn-in archive: %s\n\033[0m' "$(TARBALL)"
+# package the staged tree into the downloadable turn-in tarball
+# usage: make dist TAG=v1.0.0
+dist: require-tag stage
+	tar -czf $(TURNIN) -C $(STAGE_DIR) .
+	@printf '\033[1;32m✓ turn-in archive ready: %s\n\033[0m' "$(TURNIN)"
 
-demo-mazegen:
-	uv run python $(MAZEGEN_DEMO) $(CONFIG)
+# create an annotated git tag for the current commit (if it doesn't exist yet)
+# usage: make tag TAG=v1.0.0 MSG="release notes"
+tag: require-tag
+	@git rev-parse -q --verify "refs/tags/$(TAG)" >/dev/null \
+		|| git tag $(TAG) -m "$(MSG)"
+
+# build the turn-in tarball, tag + push, and cut a GitHub release carrying it
+# usage: make publish TAG=v1.0.0 MSG="release notes"
+# gh prompts interactively for the release title and notes.
+publish: dist tag
+	git push origin HEAD:refs/heads/main --tags
+	gh release create $(TAG) $(TURNIN)
 
 # remove python caches
 clean:
